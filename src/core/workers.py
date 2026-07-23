@@ -32,6 +32,11 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await close_mongo_client()
 
 
+async def heartbeat(_ctx: dict[str, Any]) -> str:
+    """Placeholder job so ARQ can boot. Replace with real jobs as modules expose them."""
+    return "ok"
+
+
 def _redis_settings_from_url(url: str) -> RedisSettings:
     return RedisSettings.from_dsn(url)
 
@@ -39,7 +44,7 @@ def _redis_settings_from_url(url: str) -> RedisSettings:
 class WorkerSettings:
     """ARQ worker config. Add functions + cron jobs as modules expose them."""
 
-    functions: ClassVar[list[Any]] = []
+    functions: ClassVar[list[Any]] = [heartbeat]
     cron_jobs: ClassVar[list[Any]] = []
     on_startup = startup
     on_shutdown = shutdown
