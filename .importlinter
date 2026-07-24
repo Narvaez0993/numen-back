@@ -1,0 +1,79 @@
+[importlinter]
+root_package = src
+include_external_packages = True
+
+# ============================================================================
+# Hexagonal architecture contracts
+# ============================================================================
+# The hexagon (domain + application) doesn't know about adapters.
+# Adapters know about the hexagon but never about each other (inbound ⇄ outbound).
+# ============================================================================
+
+[importlinter:contract:auth-hexagonal-layers]
+name = auth module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.auth.adapters
+    src.modules.auth.application
+    src.modules.auth.domain
+
+[importlinter:contract:auth-inbound-forbids-outbound]
+name = auth — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.auth.adapters.inbound
+forbidden_modules =
+    src.modules.auth.adapters.outbound
+# Allow indirect imports: src.core.di.container is the composition root and
+# legitimately bridges inbound (via Depends factories) and outbound (instantiates).
+allow_indirect_imports = True
+
+[importlinter:contract:auth-outbound-forbids-inbound]
+name = auth — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.auth.adapters.outbound
+forbidden_modules =
+    src.modules.auth.adapters.inbound
+allow_indirect_imports = True
+
+[importlinter:contract:domain-purity]
+name = Domain layers cannot import frameworks/persistence/external SDKs
+type = forbidden
+source_modules =
+    src.modules.auth.domain
+    src.shared.domain
+forbidden_modules =
+    fastapi
+    beanie
+    motor
+    pydantic
+    pydantic_settings
+    sqlalchemy
+    anthropic
+    openai
+    aioboto3
+    arq
+    redis
+    jwt
+    argon2
+
+[importlinter:contract:application-purity]
+name = Application use_cases and ports cannot import adapters or frameworks
+type = forbidden
+source_modules =
+    src.modules.auth.application
+    src.shared.application
+forbidden_modules =
+    fastapi
+    beanie
+    motor
+    sqlalchemy
+    anthropic
+    openai
+    aioboto3
+    arq
+    redis
+    jwt
+    argon2
+    src.modules.auth.adapters
