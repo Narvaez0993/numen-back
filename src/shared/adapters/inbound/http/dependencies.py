@@ -35,3 +35,20 @@ def get_current_user_id(
         return UUID(sub)
     except ValueError as exc:
         raise UnauthorizedError("Invalid token subject format") from exc
+
+
+async def get_current_tier(
+    user_id: UUID = Depends(get_current_user_id),
+) -> str:
+    """Resolve the caller's plan tier for Free-capacity gates.
+
+    Reads through the composition root's auth repository. Local import keeps this
+    inbound adapter decoupled from `core` at module-import time (no cycle) — the
+    same bridge the routers use.
+    """
+    from src.core.di.container import get_container
+
+    user = await get_container().auth_repository.find_by_id(user_id)
+    if user is None:
+        raise UnauthorizedError("Unknown user")
+    return user.tier

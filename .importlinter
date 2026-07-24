@@ -42,6 +42,7 @@ name = Domain layers cannot import frameworks/persistence/external SDKs
 type = forbidden
 source_modules =
     src.modules.auth.domain
+    src.modules.categories.domain
     src.shared.domain
 forbidden_modules =
     fastapi
@@ -63,6 +64,7 @@ name = Application use_cases and ports cannot import adapters or frameworks
 type = forbidden
 source_modules =
     src.modules.auth.application
+    src.modules.categories.application
     src.shared.application
 forbidden_modules =
     fastapi
@@ -77,3 +79,30 @@ forbidden_modules =
     jwt
     argon2
     src.modules.auth.adapters
+    src.modules.categories.adapters
+
+[importlinter:contract:categories-hexagonal-layers]
+name = categories module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.categories.adapters
+    src.modules.categories.application
+    src.modules.categories.domain
+
+[importlinter:contract:categories-inbound-forbids-outbound]
+name = categories — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.categories.adapters.inbound
+forbidden_modules =
+    src.modules.categories.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:categories-outbound-forbids-inbound]
+name = categories — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.categories.adapters.outbound
+forbidden_modules =
+    src.modules.categories.adapters.inbound
+allow_indirect_imports = True

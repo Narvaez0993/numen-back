@@ -39,6 +39,14 @@ from src.modules.auth.application.use_cases.update_display_name import (
     UpdateDisplayNameUseCase,
 )
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
+from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
+    MongoCategoryRepository,
+)
+from src.modules.categories.application.ports.category_repository import CategoryRepository
+from src.modules.categories.application.use_cases.create_category import CreateCategoryUseCase
+from src.modules.categories.application.use_cases.delete_category import DeleteCategoryUseCase
+from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
+from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.time.system_clock import SystemClock
 from src.shared.application.ports.clock import Clock
@@ -74,6 +82,13 @@ class Container:
     logout_use_case: LogoutUseCase
     update_display_name_use_case: UpdateDisplayNameUseCase
 
+    # Categories
+    category_repository: CategoryRepository
+    list_categories_use_case: ListCategoriesUseCase
+    create_category_use_case: CreateCategoryUseCase
+    update_category_use_case: UpdateCategoryUseCase
+    delete_category_use_case: DeleteCategoryUseCase
+
 
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
@@ -86,15 +101,12 @@ def build_container(settings: Settings | None = None) -> Container:
         access_ttl_minutes=settings.jwt_access_ttl_minutes,
     )
     clock: Clock = SystemClock()
-    verification_code_repository: VerificationCodeRepository = (
-        MongoVerificationCodeRepository()
-    )
+    verification_code_repository: VerificationCodeRepository = MongoVerificationCodeRepository()
     refresh_token_repository: RefreshTokenRepository = MongoRefreshTokenRepository()
-    code_generator: CodeGenerator = SecretsCodeGenerator(
-        length=settings.verification_code_length
-    )
+    code_generator: CodeGenerator = SecretsCodeGenerator(length=settings.verification_code_length)
     refresh_token_issuer: RefreshTokenIssuer = SecretsRefreshTokenIssuer()
     email_sender: EmailSender = LoggingEmailSender()
+    category_repository: CategoryRepository = MongoCategoryRepository()
 
     session_issuer = SessionIssuer(
         token_service=token_service,
@@ -160,6 +172,20 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         update_display_name_use_case=UpdateDisplayNameUseCase(
             auth_repository=auth_repository,
+        ),
+        category_repository=category_repository,
+        list_categories_use_case=ListCategoriesUseCase(
+            category_repository=category_repository,
+        ),
+        create_category_use_case=CreateCategoryUseCase(
+            category_repository=category_repository,
+            free_limit=settings.categories_free_limit,
+        ),
+        update_category_use_case=UpdateCategoryUseCase(
+            category_repository=category_repository,
+        ),
+        delete_category_use_case=DeleteCategoryUseCase(
+            category_repository=category_repository,
         ),
     )
 

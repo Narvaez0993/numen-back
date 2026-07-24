@@ -13,6 +13,12 @@ from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_docu
     RefreshTokenDocument,
 )
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
+from src.modules.categories.adapters.inbound.http.routers import (
+    router as categories_router,
+)
+from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
+    CategoryDocument,
+)
 from src.shared.adapters.inbound.http.exception_handlers import register_exception_handlers
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -23,6 +29,7 @@ _DOCUMENTS = [
     UserDocument,
     EmailVerificationCodeDocument,
     RefreshTokenDocument,
+    CategoryDocument,
 ]
 
 
@@ -56,6 +63,7 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(categories_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:
