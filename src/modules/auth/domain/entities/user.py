@@ -1,5 +1,5 @@
 from dataclasses import dataclass, replace
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Literal
 from uuid import UUID, uuid4
 
@@ -16,6 +16,7 @@ class User:
     display_name: str
     hashed_password: HashedPassword
     tier: Tier
+    email_verified: bool
     created_at: datetime
 
     @classmethod
@@ -24,6 +25,7 @@ class User:
         email: Email,
         display_name: str,
         hashed_password: HashedPassword,
+        created_at: datetime,
     ) -> "User":
         return cls(
             id=uuid4(),
@@ -31,11 +33,15 @@ class User:
             display_name=display_name,
             hashed_password=hashed_password,
             tier="free",
-            created_at=datetime.now(UTC),
+            email_verified=False,
+            created_at=created_at,
         )
 
     def with_password(self, hashed_password: HashedPassword) -> "User":
         return replace(self, hashed_password=hashed_password)
+
+    def verified(self) -> "User":
+        return replace(self, email_verified=True)
 
     def upgrade_to_plus(self) -> "User":
         return replace(self, tier="plus")

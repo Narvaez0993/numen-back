@@ -13,7 +13,11 @@ def get_mongo_client(settings: Settings) -> AsyncMongoClient[Any]:
     """Return a singleton pymongo async client. Connection is lazy until first op."""
     global _client
     if _client is None:
-        _client = AsyncMongoClient(settings.mongo_uri, uuidRepresentation="standard")
+        _client = AsyncMongoClient(
+            settings.mongo_uri,
+            uuidRepresentation="standard",
+            tz_aware=True,
+        )
     return _client
 
 

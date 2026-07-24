@@ -11,6 +11,12 @@ from typing import Any, ClassVar
 from arq.connections import RedisSettings
 
 from src.core.di.container import get_container
+from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
+    EmailVerificationCodeDocument,
+)
+from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_document import (
+    RefreshTokenDocument,
+)
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -18,6 +24,8 @@ from src.shared.adapters.outbound.persistence.mongo import close_mongo_client, i
 
 _DOCUMENTS = [
     UserDocument,
+    EmailVerificationCodeDocument,
+    RefreshTokenDocument,
 ]
 
 

@@ -15,6 +15,7 @@ class UserMapper:
             display_name=doc.display_name,
             hashed_password=HashedPassword(value=doc.hashed_password),
             tier=cast(Tier, doc.tier),
+            email_verified=doc.email_verified,
             created_at=doc.created_at,
         )
 
@@ -26,5 +27,6 @@ class UserMapper:
             display_name=user.display_name,
             hashed_password=user.hashed_password.value,
             tier=user.tier,
+            email_verified=user.email_verified,
             created_at=user.created_at,
         )

@@ -12,4 +12,4 @@ class RegisterOutputDTO(BaseModel):
     email: str
     display_name: str
     tier: str
-    access_token: str
+    email_verified: bool

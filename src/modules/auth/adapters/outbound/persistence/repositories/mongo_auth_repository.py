@@ -27,4 +27,5 @@ class MongoAuthRepository:
         existing.display_name = user.display_name
         existing.hashed_password = user.hashed_password.value
         existing.tier = user.tier
+        existing.email_verified = user.email_verified
         await existing.save()

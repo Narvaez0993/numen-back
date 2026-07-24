@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     jwt_access_ttl_minutes: int = 15
     jwt_refresh_ttl_days: int = 30
 
+    # Email verification
+    verification_code_length: int = 6
+    verification_code_ttl_minutes: int = 15
+    verification_max_attempts: int = 5
+    verification_resend_cooldown_seconds: int = 60
+
     # AI providers
     anthropic_api_key: str = ""
     openai_api_key: str = ""

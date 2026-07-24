@@ -13,6 +13,7 @@ class UserDocument(Document):
     display_name: str
     hashed_password: str
     tier: str = "free"
+    email_verified: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:

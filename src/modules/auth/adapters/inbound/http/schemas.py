@@ -12,12 +12,38 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class VerifyEmailRequest(BaseModel):
+    email: EmailStr
+    code: str = Field(min_length=1, max_length=12)
+
+
+class ResendCodeRequest(BaseModel):
+    email: EmailStr
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(min_length=1)
+
+
+class PendingVerificationResponse(BaseModel):
+    user_id: str
+    email: str
+    display_name: str
+    tier: str
+    email_verified: bool
+
+
 class AuthResponse(BaseModel):
     user_id: str
     email: str
     display_name: str
     tier: str
     access_token: str
+    refresh_token: str
 
 
 class CurrentUserResponse(BaseModel):
@@ -25,3 +51,4 @@ class CurrentUserResponse(BaseModel):
     email: str
     display_name: str
     tier: str
+    email_verified: bool
