@@ -45,3 +45,6 @@ class User:
 
     def upgrade_to_plus(self) -> "User":
         return replace(self, tier="plus")
+
+    def with_display_name(self, display_name: str) -> "User":
+        return replace(self, display_name=display_name)

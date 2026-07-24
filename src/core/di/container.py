@@ -35,6 +35,9 @@ from src.modules.auth.application.use_cases.logout import LogoutUseCase
 from src.modules.auth.application.use_cases.refresh import RefreshUseCase
 from src.modules.auth.application.use_cases.register import RegisterUseCase
 from src.modules.auth.application.use_cases.resend_code import ResendCodeUseCase
+from src.modules.auth.application.use_cases.update_display_name import (
+    UpdateDisplayNameUseCase,
+)
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.time.system_clock import SystemClock
@@ -69,6 +72,7 @@ class Container:
     resend_code_use_case: ResendCodeUseCase
     refresh_use_case: RefreshUseCase
     logout_use_case: LogoutUseCase
+    update_display_name_use_case: UpdateDisplayNameUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -153,6 +157,9 @@ def build_container(settings: Settings | None = None) -> Container:
             refresh_token_repository=refresh_token_repository,
             refresh_token_issuer=refresh_token_issuer,
             clock=clock,
+        ),
+        update_display_name_use_case=UpdateDisplayNameUseCase(
+            auth_repository=auth_repository,
         ),
     )
 

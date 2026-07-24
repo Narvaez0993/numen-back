@@ -4,7 +4,9 @@ from pydantic import BaseModel, EmailStr, Field
 class RegisterRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=8)
-    display_name: str = Field(min_length=1, max_length=80)
+    # Optional: the name is collected after email verification and set via
+    # PATCH /auth/me.
+    display_name: str = Field(default="", max_length=80)
 
 
 class LoginRequest(BaseModel):
@@ -52,3 +54,7 @@ class CurrentUserResponse(BaseModel):
     display_name: str
     tier: str
     email_verified: bool
+
+
+class UpdateMeRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=80)

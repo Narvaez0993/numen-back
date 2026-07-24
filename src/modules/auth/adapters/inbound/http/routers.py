@@ -11,12 +11,14 @@ from src.modules.auth.adapters.inbound.http.schemas import (
     RefreshRequest,
     RegisterRequest,
     ResendCodeRequest,
+    UpdateMeRequest,
     VerifyEmailRequest,
 )
 from src.modules.auth.application.dto.login import LoginInputDTO
 from src.modules.auth.application.dto.register import RegisterInputDTO
 from src.modules.auth.application.dto.resend_code import ResendCodeInputDTO
 from src.modules.auth.application.dto.token import LogoutInputDTO, RefreshInputDTO
+from src.modules.auth.application.dto.update_display_name import UpdateDisplayNameInputDTO
 from src.modules.auth.application.dto.verify_email import VerifyEmailInputDTO
 from src.modules.auth.application.ports.auth_repository import AuthRepository
 from src.modules.auth.application.use_cases.login import LoginUseCase
@@ -24,6 +26,9 @@ from src.modules.auth.application.use_cases.logout import LogoutUseCase
 from src.modules.auth.application.use_cases.refresh import RefreshUseCase
 from src.modules.auth.application.use_cases.register import RegisterUseCase
 from src.modules.auth.application.use_cases.resend_code import ResendCodeUseCase
+from src.modules.auth.application.use_cases.update_display_name import (
+    UpdateDisplayNameUseCase,
+)
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
 from src.modules.auth.domain.errors import InvalidCredentialsError
 from src.shared.adapters.inbound.http.dependencies import get_current_user_id
@@ -71,6 +76,12 @@ def _depends_auth_repository() -> AuthRepository:
     from src.core.di.container import get_container
 
     return get_container().auth_repository
+
+
+def _depends_update_display_name_use_case() -> UpdateDisplayNameUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().update_display_name_use_case
 
 
 @router.post(
@@ -155,3 +166,15 @@ async def me(
         tier=user.tier,
         email_verified=user.email_verified,
     )
+
+
+@router.patch("/me", response_model=CurrentUserResponse)
+async def update_me(
+    body: UpdateMeRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    use_case: UpdateDisplayNameUseCase = Depends(_depends_update_display_name_use_case),
+) -> CurrentUserResponse:
+    output = await use_case.execute(
+        UpdateDisplayNameInputDTO(user_id=user_id, display_name=body.display_name)
+    )
+    return CurrentUserResponse(**output.model_dump())
