@@ -40,7 +40,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(
-        title="back-numen",
+        title="back-deshka",
         version="0.1.0",
         lifespan=lifespan,
     )
