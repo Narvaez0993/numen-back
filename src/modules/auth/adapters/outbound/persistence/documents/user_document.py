@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 from typing import Annotated, ClassVar
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pymongo
 from beanie import Document, Indexed
@@ -8,7 +8,7 @@ from pydantic import Field
 
 
 class UserDocument(Document):
-    id: UUID = Field(default_factory=uuid4)  # type: ignore[assignment]
+    id: str = Field(default_factory=lambda: str(uuid4()))  # type: ignore[assignment]
     email: Annotated[str, Indexed(unique=True)]
     display_name: str
     hashed_password: str

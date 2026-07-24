@@ -1,14 +1,14 @@
 from datetime import datetime
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 from beanie import Document, Indexed
 from pydantic import Field
 
 
 class EmailVerificationCodeDocument(Document):
-    id: UUID = Field(default_factory=uuid4)  # type: ignore[assignment]
-    user_id: Annotated[UUID, Indexed(unique=True)]
+    id: str = Field(default_factory=lambda: str(uuid4()))  # type: ignore[assignment]
+    user_id: Annotated[str, Indexed(unique=True)]
     code: str
     expires_at: datetime
     attempts: int = 0

@@ -18,13 +18,13 @@ class MongoVerificationCodeRepository:
 
     async def find_active_by_user(self, user_id: UUID) -> EmailVerificationCode | None:
         doc = await EmailVerificationCodeDocument.find_one(
-            EmailVerificationCodeDocument.user_id == user_id
+            EmailVerificationCodeDocument.user_id == str(user_id)
         )
         return EmailVerificationCodeMapper.to_domain(doc) if doc else None
 
     async def save(self, code: EmailVerificationCode) -> None:
         existing = await EmailVerificationCodeDocument.find_one(
-            EmailVerificationCodeDocument.user_id == code.user_id
+            EmailVerificationCodeDocument.user_id == str(code.user_id)
         )
         if existing is None:
             await EmailVerificationCodeMapper.to_document(code).insert()
@@ -39,7 +39,7 @@ class MongoVerificationCodeRepository:
 
     async def delete_by_user(self, user_id: UUID) -> None:
         existing = await EmailVerificationCodeDocument.find_one(
-            EmailVerificationCodeDocument.user_id == user_id
+            EmailVerificationCodeDocument.user_id == str(user_id)
         )
         if existing is not None:
             await existing.delete()

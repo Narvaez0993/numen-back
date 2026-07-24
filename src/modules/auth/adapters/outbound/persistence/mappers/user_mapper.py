@@ -1,4 +1,5 @@
 from typing import cast
+from uuid import UUID
 
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
 from src.modules.auth.domain.entities.user import Tier, User
@@ -10,7 +11,7 @@ class UserMapper:
     @staticmethod
     def to_domain(doc: UserDocument) -> User:
         return User(
-            id=doc.id,
+            id=UUID(doc.id),
             email=Email(value=doc.email),
             display_name=doc.display_name,
             hashed_password=HashedPassword(value=doc.hashed_password),
@@ -22,7 +23,7 @@ class UserMapper:
     @staticmethod
     def to_document(user: User) -> UserDocument:
         return UserDocument(
-            id=user.id,
+            id=str(user.id),
             email=user.email.value,
             display_name=user.display_name,
             hashed_password=user.hashed_password.value,

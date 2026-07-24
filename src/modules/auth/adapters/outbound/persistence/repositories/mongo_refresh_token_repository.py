@@ -14,7 +14,7 @@ class MongoRefreshTokenRepository:
     """Beanie/Mongo implementation of `RefreshTokenRepository`."""
 
     async def save(self, token: RefreshToken) -> None:
-        existing = await RefreshTokenDocument.get(token.id)
+        existing = await RefreshTokenDocument.get(str(token.id))
         if existing is None:
             await RefreshTokenMapper.to_document(token).insert()
             return
@@ -30,7 +30,7 @@ class MongoRefreshTokenRepository:
 
     async def revoke_family(self, family_id: UUID, revoked_at: datetime) -> None:
         docs = await RefreshTokenDocument.find(
-            RefreshTokenDocument.family_id == family_id
+            RefreshTokenDocument.family_id == str(family_id)
         ).to_list()
         for doc in docs:
             if doc.revoked_at is None:
