@@ -2,27 +2,42 @@ import pytest
 
 from src.modules.auth.application.dto.register import RegisterInputDTO
 from src.modules.auth.application.use_cases.register import RegisterUseCase
-from src.modules.auth.domain.entities.user import User
 from src.modules.auth.domain.errors import UserAlreadyExistsError, WeakPasswordError
-from src.modules.auth.domain.value_objects.email import Email
-from src.modules.auth.domain.value_objects.hashed_password import HashedPassword
-from tests.unit.auth.test_login_use_case import (
-    _FakePasswordHasher,
-    _FakeTokenService,
-    _InMemoryAuthRepository,
+from tests.unit.auth.fakes import (
+    FakeCodeGenerator,
+    FakeEmailSender,
+    FakePasswordHasher,
+    FixedClock,
+    InMemoryAuthRepository,
+    InMemoryVerificationCodeRepository,
+    make_user,
 )
 
 
-@pytest.mark.asyncio
-async def test_register_creates_user_and_returns_token() -> None:
-    repo = _InMemoryAuthRepository()
-    use_case = RegisterUseCase(
+def _use_case(
+    repo: InMemoryAuthRepository,
+    codes: InMemoryVerificationCodeRepository,
+    email_sender: FakeEmailSender,
+) -> RegisterUseCase:
+    return RegisterUseCase(
         auth_repository=repo,
-        password_hasher=_FakePasswordHasher(),
-        token_service=_FakeTokenService(),
+        password_hasher=FakePasswordHasher(),
+        code_generator=FakeCodeGenerator("123456"),
+        verification_code_repository=codes,
+        email_sender=email_sender,
+        clock=FixedClock(),
+        code_ttl_minutes=15,
+        resend_cooldown_seconds=60,
     )
 
-    result = await use_case.execute(
+
+@pytest.mark.asyncio
+async def test_register_creates_unverified_user_and_sends_code() -> None:
+    repo = InMemoryAuthRepository()
+    codes = InMemoryVerificationCodeRepository()
+    email_sender = FakeEmailSender()
+
+    result = await _use_case(repo, codes, email_sender).execute(
         RegisterInputDTO(
             email="new@numen.app",
             password="strong-enough",
@@ -31,47 +46,37 @@ async def test_register_creates_user_and_returns_token() -> None:
     )
 
     assert result.email == "new@numen.app"
-    assert result.tier == "free"
-    assert result.display_name == "New User"
-    assert result.access_token.startswith("token-")
+    assert result.email_verified is False
+    assert len(repo.users) == 1
+    assert repo.users[0].email_verified is False
+    assert email_sender.sent == [("new@numen.app", "123456")]
 
 
 @pytest.mark.asyncio
 async def test_register_rejects_weak_password() -> None:
-    use_case = RegisterUseCase(
-        auth_repository=_InMemoryAuthRepository(),
-        password_hasher=_FakePasswordHasher(),
-        token_service=_FakeTokenService(),
+    use_case = _use_case(
+        InMemoryAuthRepository(),
+        InMemoryVerificationCodeRepository(),
+        FakeEmailSender(),
     )
 
     with pytest.raises(WeakPasswordError):
         await use_case.execute(
-            RegisterInputDTO(
-                email="new@numen.app",
-                password="short",
-                display_name="X",
-            )
+            RegisterInputDTO(email="new@numen.app", password="short", display_name="X")
         )
 
 
 @pytest.mark.asyncio
 async def test_register_rejects_existing_email() -> None:
-    seeded = User.new(
-        email=Email.create("existing@numen.app"),
-        display_name="Existing",
-        hashed_password=HashedPassword(value="x"),
-    )
-    use_case = RegisterUseCase(
-        auth_repository=_InMemoryAuthRepository(seeded),
-        password_hasher=_FakePasswordHasher(),
-        token_service=_FakeTokenService(),
+    use_case = _use_case(
+        InMemoryAuthRepository(make_user()),
+        InMemoryVerificationCodeRepository(),
+        FakeEmailSender(),
     )
 
     with pytest.raises(UserAlreadyExistsError):
         await use_case.execute(
             RegisterInputDTO(
-                email="existing@numen.app",
-                password="another-strong-pw",
-                display_name="Other",
+                email="demo@numen.app", password="strong-enough", display_name="Dup"
             )
         )

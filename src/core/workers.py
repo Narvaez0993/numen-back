@@ -11,6 +11,12 @@ from typing import Any, ClassVar
 from arq.connections import RedisSettings
 
 from src.core.di.container import get_container
+from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
+    EmailVerificationCodeDocument,
+)
+from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_document import (
+    RefreshTokenDocument,
+)
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -18,6 +24,8 @@ from src.shared.adapters.outbound.persistence.mongo import close_mongo_client, i
 
 _DOCUMENTS = [
     UserDocument,
+    EmailVerificationCodeDocument,
+    RefreshTokenDocument,
 ]
 
 
@@ -32,6 +40,11 @@ async def shutdown(_ctx: dict[str, Any]) -> None:
     await close_mongo_client()
 
 
+async def heartbeat(_ctx: dict[str, Any]) -> str:
+    """Placeholder job so ARQ can boot. Replace with real jobs as modules expose them."""
+    return "ok"
+
+
 def _redis_settings_from_url(url: str) -> RedisSettings:
     return RedisSettings.from_dsn(url)
 
@@ -39,7 +52,7 @@ def _redis_settings_from_url(url: str) -> RedisSettings:
 class WorkerSettings:
     """ARQ worker config. Add functions + cron jobs as modules expose them."""
 
-    functions: ClassVar[list[Any]] = []
+    functions: ClassVar[list[Any]] = [heartbeat]
     cron_jobs: ClassVar[list[Any]] = []
     on_startup = startup
     on_shutdown = shutdown

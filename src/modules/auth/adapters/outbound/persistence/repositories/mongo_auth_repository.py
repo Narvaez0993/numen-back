@@ -10,7 +10,7 @@ class MongoAuthRepository:
     """Beanie/Mongo implementation of `AuthRepository` protocol."""
 
     async def find_by_id(self, user_id: UUID) -> User | None:
-        doc = await UserDocument.get(user_id)
+        doc = await UserDocument.get(str(user_id))
         return UserMapper.to_domain(doc) if doc else None
 
     async def find_by_email(self, email: Email) -> User | None:
@@ -18,7 +18,7 @@ class MongoAuthRepository:
         return UserMapper.to_domain(doc) if doc else None
 
     async def save(self, user: User) -> None:
-        existing = await UserDocument.get(user.id)
+        existing = await UserDocument.get(str(user.id))
         if existing is None:
             await UserMapper.to_document(user).insert()
             return
@@ -27,4 +27,5 @@ class MongoAuthRepository:
         existing.display_name = user.display_name
         existing.hashed_password = user.hashed_password.value
         existing.tier = user.tier
+        existing.email_verified = user.email_verified
         await existing.save()

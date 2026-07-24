@@ -134,7 +134,7 @@ Plantilla canónica: `src/modules/auth/`. Para crear `expenses` (por ejemplo):
 ## Lo que NO está incluido todavía
 
 - Otros módulos (`accounts`, `expenses`, `subscriptions`, `budgets`, `assistant`, `billing`) — cada uno tendrá su mini-plan.
-- Refresh tokens (solo access token implementado).
+- Social sign-in (Apple / Google) y reset de contraseña.
 - Implementación real de transcripción/visión IA (puertos quedarán definidos en sus módulos, falta el adapter).
 - Cuotas IA Free/Plus.
 - Push notifications.
@@ -145,19 +145,35 @@ Plantilla canónica: `src/modules/auth/`. Para crear `expenses` (por ejemplo):
 
 ## Smoke test end-to-end (con docker compose arriba)
 
+Email delivery is suspended: the verification code is logged by the API. Read it with
+`docker compose logs api | grep verification_code_issued` (JSON field `code`).
+
 ```bash
-# 1. Registrar
+# 1. Register — creates an unverified user, no tokens (201)
 curl -X POST http://localhost:8000/auth/register \
   -H 'Content-Type: application/json' \
   -d '{"email":"sebastian@numen.app","password":"demo1234","display_name":"Sebastián"}'
 
-# 2. Login
+# 2. Login before verifying → 403 auth.email_not_verified
 curl -X POST http://localhost:8000/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"sebastian@numen.app","password":"demo1234"}'
-# Copiar access_token
 
-# 3. /me
-curl http://localhost:8000/auth/me \
-  -H "Authorization: Bearer <access_token>"
+# 3. Grab the code from the API log, then verify → 200 with access_token + refresh_token
+curl -X POST http://localhost:8000/auth/verify-email \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"sebastian@numen.app","code":"<code-from-log>"}'
+
+# 4. Login now succeeds; /me shows email_verified: true
+curl http://localhost:8000/auth/me -H "Authorization: Bearer <access_token>"
+
+# 5. Rotate the session; reusing the old refresh token revokes the whole family (401)
+curl -X POST http://localhost:8000/auth/refresh \
+  -H 'Content-Type: application/json' \
+  -d '{"refresh_token":"<refresh_token>"}'
+
+# 6. Logout revokes the family
+curl -X POST http://localhost:8000/auth/logout \
+  -H 'Content-Type: application/json' \
+  -d '{"refresh_token":"<refresh_token>"}'
 ```

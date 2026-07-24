@@ -3,7 +3,10 @@ name: numen-back
 services:
   mongo:
     image: mongo:7
-    command: ["--replSet", "rs0", "--bind_ip_all"]
+    command: ["--replSet", "rs0", "--bind_ip_all", "--quiet"]
+    # attach: false → Compose NO muestra el stdout de mongo en `docker compose up`.
+    # Los logs SÍ siguen accesibles vía `docker compose logs mongo` si los necesitás.
+    attach: false
     ports:
       - "27017:27017"
     volumes:
@@ -18,10 +21,12 @@ services:
             rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] });
           }
         '
-      interval: 5s
+      # 5s mientras inicializa (start_period), luego 30s — reduce ruido de connection logs
+      interval: 30s
       timeout: 10s
-      retries: 30
-      start_period: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 5s
 
   redis:
     image: redis:7-alpine

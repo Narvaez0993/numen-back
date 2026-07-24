@@ -4,7 +4,7 @@ from pydantic import BaseModel
 class RegisterInputDTO(BaseModel):
     email: str
     password: str
-    display_name: str
+    display_name: str = ""
 
 
 class RegisterOutputDTO(BaseModel):
@@ -12,4 +12,4 @@ class RegisterOutputDTO(BaseModel):
     email: str
     display_name: str
     tier: str
-    access_token: str
+    email_verified: bool

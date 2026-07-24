@@ -20,11 +20,11 @@ class Settings(BaseSettings):
 
     # App
     app_env: Literal["development", "staging", "production", "test"] = "development"
-    app_name: str = "back-numen"
+    app_name: str = "back-deshka"
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
 
     # API
-    api_cors_origins: list[str] = Field(default_factory=lambda: ["numen://", "http://localhost:8081"])
+    api_cors_origins: list[str] = Field(default_factory=lambda: ["deshka://", "http://localhost:8081"])
 
     # MongoDB
     mongo_uri: str = "mongodb://localhost:27017/?replicaSet=rs0&directConnection=true"
@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     jwt_access_ttl_minutes: int = 15
     jwt_refresh_ttl_days: int = 30
 
+    # Email verification
+    verification_code_length: int = 6
+    verification_code_ttl_minutes: int = 15
+    verification_max_attempts: int = 5
+    verification_resend_cooldown_seconds: int = 60
+
     # AI providers
     anthropic_api_key: str = ""
     openai_api_key: str = ""
@@ -47,7 +53,7 @@ class Settings(BaseSettings):
     r2_endpoint: str = ""
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
-    r2_bucket: str = "numen-receipts"
+    r2_bucket: str = "deshka-receipts"
 
     # Sentry
     sentry_dsn: str = ""
