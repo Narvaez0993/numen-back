@@ -75,6 +75,24 @@ from src.modules.categories.application.use_cases.create_category import CreateC
 from src.modules.categories.application.use_cases.delete_category import DeleteCategoryUseCase
 from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
 from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
+from src.modules.movements.adapters.outbound.catalog.categories_category_lookup import (
+    CategoriesCategoryLookup,
+)
+from src.modules.movements.adapters.outbound.ledger.accounts_source_ledger import (
+    AccountsSourceLedger,
+)
+from src.modules.movements.adapters.outbound.persistence.repositories.mongo_idempotency_store import (  # noqa: E501
+    MongoIdempotencyStore,
+)
+from src.modules.movements.adapters.outbound.persistence.repositories.mongo_movement_repository import (  # noqa: E501
+    MongoMovementRepository,
+)
+from src.modules.movements.application.ports.category_lookup import CategoryLookup
+from src.modules.movements.application.ports.idempotency_store import IdempotencyStore
+from src.modules.movements.application.ports.movement_repository import MovementRepository
+from src.modules.movements.application.ports.source_ledger import SourceLedger
+from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
+from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
 from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
@@ -133,6 +151,14 @@ class Container:
     update_credit_card_use_case: UpdateCreditCardUseCase
     delete_credit_card_use_case: DeleteCreditCardUseCase
 
+    # Movements
+    movement_repository: MovementRepository
+    source_ledger: SourceLedger
+    category_lookup: CategoryLookup
+    idempotency_store: IdempotencyStore
+    create_movement_use_case: CreateMovementUseCase
+    list_movements_use_case: ListMovementsUseCase
+
 
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
@@ -154,6 +180,15 @@ def build_container(settings: Settings | None = None) -> Container:
     category_repository: CategoryRepository = MongoCategoryRepository()
     account_repository: AccountRepository = MongoAccountRepository()
     credit_card_repository: CreditCardRepository = MongoCreditCardRepository()
+    movement_repository: MovementRepository = MongoMovementRepository()
+    idempotency_store: IdempotencyStore = MongoIdempotencyStore()
+    source_ledger: SourceLedger = AccountsSourceLedger(
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+    )
+    category_lookup: CategoryLookup = CategoriesCategoryLookup(
+        category_repository=category_repository,
+    )
 
     session_issuer = SessionIssuer(
         token_service=token_service,
@@ -265,6 +300,21 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         delete_credit_card_use_case=DeleteCreditCardUseCase(
             credit_card_repository=credit_card_repository,
+        ),
+        movement_repository=movement_repository,
+        source_ledger=source_ledger,
+        category_lookup=category_lookup,
+        idempotency_store=idempotency_store,
+        create_movement_use_case=CreateMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            category_lookup=category_lookup,
+            idempotency_store=idempotency_store,
+            unit_of_work=unit_of_work,
+            clock=clock,
+        ),
+        list_movements_use_case=ListMovementsUseCase(
+            movement_repository=movement_repository,
         ),
     )
 

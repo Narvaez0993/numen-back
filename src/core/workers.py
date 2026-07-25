@@ -28,6 +28,12 @@ from src.modules.auth.adapters.outbound.persistence.documents.user_document impo
 from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
     CategoryDocument,
 )
+from src.modules.movements.adapters.outbound.persistence.documents.idempotency_key_document import (
+    IdempotencyKeyDocument,
+)
+from src.modules.movements.adapters.outbound.persistence.documents.movement_document import (
+    MovementDocument,
+)
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
 from src.shared.adapters.outbound.persistence.mongo import close_mongo_client, init_persistence
@@ -39,6 +45,8 @@ _DOCUMENTS = [
     CategoryDocument,
     AccountDocument,
     CreditCardDocument,
+    MovementDocument,
+    IdempotencyKeyDocument,
 ]
 
 
