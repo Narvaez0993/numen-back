@@ -4,11 +4,18 @@ from src.modules.movements.adapters.inbound.http.schemas import (
     CreateMovementRequest,
     MovementResponse,
     MovementsListResponse,
+    UpdateMovementRequest,
 )
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
-from src.modules.movements.application.dto.movement_commands import CreateMovementInputDTO
+from src.modules.movements.application.dto.movement_commands import (
+    CreateMovementInputDTO,
+    DeleteMovementInputDTO,
+    UpdateMovementInputDTO,
+)
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
+from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.update_movement import UpdateMovementUseCase
 from src.shared.adapters.inbound.http.dependencies import CallerContext, get_caller
 
 router = APIRouter(prefix="/movements", tags=["movements"])
@@ -24,6 +31,18 @@ def _depends_list_use_case() -> ListMovementsUseCase:
     from src.core.di.container import get_container
 
     return get_container().list_movements_use_case
+
+
+def _depends_update_use_case() -> UpdateMovementUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().update_movement_use_case
+
+
+def _depends_delete_use_case() -> DeleteMovementUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().delete_movement_use_case
 
 
 @router.get("", response_model=MovementsListResponse)
@@ -81,3 +100,38 @@ async def create_movement(
         )
     )
     return MovementResponse(**output.model_dump())
+
+
+@router.patch("/{movement_id}", response_model=MovementResponse)
+async def update_movement(
+    movement_id: str,
+    body: UpdateMovementRequest,
+    caller: CallerContext = Depends(get_caller),
+    use_case: UpdateMovementUseCase = Depends(_depends_update_use_case),
+) -> MovementResponse:
+    """Edits the movement and re-settles what it had moved, atomically."""
+    output = await use_case.execute(
+        UpdateMovementInputDTO(
+            user_id=caller.user_id,
+            movement_id=movement_id,
+            description=body.description,
+            amount=body.amount,
+            source_type=body.source_type,
+            source_id=body.source_id,
+            destination_type=body.destination_type,
+            destination_id=body.destination_id,
+            category_id=body.category_id,
+            occurred_on=body.occurred_on,
+        )
+    )
+    return MovementResponse(**output.model_dump())
+
+
+@router.delete("/{movement_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_movement(
+    movement_id: str,
+    caller: CallerContext = Depends(get_caller),
+    use_case: DeleteMovementUseCase = Depends(_depends_delete_use_case),
+) -> None:
+    """Removes the movement and gives back the money it had moved."""
+    await use_case.execute(DeleteMovementInputDTO(user_id=caller.user_id, movement_id=movement_id))

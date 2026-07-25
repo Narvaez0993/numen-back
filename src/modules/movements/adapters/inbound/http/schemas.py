@@ -36,3 +36,17 @@ class CreateMovementRequest(BaseModel):
     # answers with a message that says what it expected.
     occurred_on: str = Field(min_length=1, max_length=10)
     captured_via: str = "manual"
+
+
+class UpdateMovementRequest(BaseModel):
+    """Everything optional: absent fields keep their stored value. `type` cannot
+    change (see `UpdateMovementInputDTO`)."""
+
+    description: str | None = Field(default=None, min_length=1, max_length=80)
+    amount: int | None = None
+    source_type: str | None = None
+    source_id: str | None = Field(default=None, min_length=1, max_length=64)
+    destination_type: str | None = None
+    destination_id: str | None = Field(default=None, min_length=1, max_length=64)
+    category_id: str | None = Field(default=None, max_length=64)
+    occurred_on: str | None = Field(default=None, min_length=1, max_length=10)

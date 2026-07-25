@@ -95,7 +95,9 @@ from src.modules.movements.application.services.movement_references import (
     MovementReferences,
 )
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
+from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.update_movement import UpdateMovementUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
 from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
@@ -162,6 +164,8 @@ class Container:
     movement_references: MovementReferences
     create_movement_use_case: CreateMovementUseCase
     list_movements_use_case: ListMovementsUseCase
+    update_movement_use_case: UpdateMovementUseCase
+    delete_movement_use_case: DeleteMovementUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -324,6 +328,18 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         list_movements_use_case=ListMovementsUseCase(
             movement_repository=movement_repository,
+        ),
+        update_movement_use_case=UpdateMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            references=movement_references,
+            unit_of_work=unit_of_work,
+            clock=clock,
+        ),
+        delete_movement_use_case=DeleteMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            unit_of_work=unit_of_work,
         ),
     )
 
