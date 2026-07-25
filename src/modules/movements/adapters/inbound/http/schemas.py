@@ -32,5 +32,7 @@ class CreateMovementRequest(BaseModel):
     destination_type: str | None = None
     destination_id: str | None = Field(default=None, max_length=64)
     category_id: str | None = Field(default=None, max_length=64)
-    occurred_on: str = Field(min_length=10, max_length=10)
+    # Only a length guard here: the domain owns the "is this a real day" rule and
+    # answers with a message that says what it expected.
+    occurred_on: str = Field(min_length=1, max_length=10)
     captured_via: str = "manual"
