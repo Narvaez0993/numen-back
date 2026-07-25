@@ -13,7 +13,7 @@ niche case that already has an exit (adjusting the debt by hand in Accounts move
 the anchor correctly).
 """
 
-from datetime import date
+from datetime import date, timedelta
 from typing import cast
 
 from src.modules.movements.domain.entities.movement import (
@@ -65,6 +65,18 @@ def ensure_occurred_on(raw: str) -> str:
     except ValueError as exc:
         raise InvalidMovementError(f"Invalid date: {raw} (expected YYYY-MM-DD)") from exc
     return parsed.isoformat()
+
+
+def ensure_not_future(occurred_on: str, today: date) -> str:
+    """You register what already happened — a scheduled charge is a subscription.
+
+    One day of grace on purpose: `today` is the server's date in UTC and a client
+    in UTC+13 can legitimately be a day ahead, so a strict comparison would reject
+    their real "today". Still catches the mistyped year.
+    """
+    if date.fromisoformat(occurred_on) > today + timedelta(days=1):
+        raise InvalidMovementError(f"Date {occurred_on} is in the future")
+    return occurred_on
 
 
 def build_source_ref(source_type: str, source_id: str) -> SourceRef:

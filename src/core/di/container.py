@@ -91,6 +91,9 @@ from src.modules.movements.application.ports.category_lookup import CategoryLook
 from src.modules.movements.application.ports.idempotency_store import IdempotencyStore
 from src.modules.movements.application.ports.movement_repository import MovementRepository
 from src.modules.movements.application.ports.source_ledger import SourceLedger
+from src.modules.movements.application.services.movement_references import (
+    MovementReferences,
+)
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
@@ -156,6 +159,7 @@ class Container:
     source_ledger: SourceLedger
     category_lookup: CategoryLookup
     idempotency_store: IdempotencyStore
+    movement_references: MovementReferences
     create_movement_use_case: CreateMovementUseCase
     list_movements_use_case: ListMovementsUseCase
 
@@ -188,6 +192,10 @@ def build_container(settings: Settings | None = None) -> Container:
     )
     category_lookup: CategoryLookup = CategoriesCategoryLookup(
         category_repository=category_repository,
+    )
+    movement_references = MovementReferences(
+        source_ledger=source_ledger,
+        category_lookup=category_lookup,
     )
 
     session_issuer = SessionIssuer(
@@ -305,10 +313,11 @@ def build_container(settings: Settings | None = None) -> Container:
         source_ledger=source_ledger,
         category_lookup=category_lookup,
         idempotency_store=idempotency_store,
+        movement_references=movement_references,
         create_movement_use_case=CreateMovementUseCase(
             movement_repository=movement_repository,
             source_ledger=source_ledger,
-            category_lookup=category_lookup,
+            references=movement_references,
             idempotency_store=idempotency_store,
             unit_of_work=unit_of_work,
             clock=clock,

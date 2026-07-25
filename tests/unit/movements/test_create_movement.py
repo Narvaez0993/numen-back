@@ -1,5 +1,8 @@
 import pytest
 
+from src.modules.movements.application.services.movement_references import (
+    MovementReferences,
+)
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.domain.errors import (
     InvalidMovementError,
@@ -25,10 +28,11 @@ def build(
     repository: InMemoryMovementRepository | None = None,
     store: InMemoryIdempotencyStore | None = None,
 ) -> CreateMovementUseCase:
+    sources = ledger or FakeSourceLedger(accounts={"nequi": 1_000_000}, cards={"visa": 0})
     return CreateMovementUseCase(
         movement_repository=repository or InMemoryMovementRepository(),
-        source_ledger=ledger or FakeSourceLedger(accounts={"nequi": 1_000_000}, cards={"visa": 0}),
-        category_lookup=FakeCategoryLookup(),
+        source_ledger=sources,
+        references=MovementReferences(source_ledger=sources, category_lookup=FakeCategoryLookup()),
         idempotency_store=store or InMemoryIdempotencyStore(),
         unit_of_work=ImmediateUnitOfWork(),
         clock=FixedClock(),

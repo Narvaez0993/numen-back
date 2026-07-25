@@ -7,6 +7,9 @@ richer or poorer. See docs/02-reglas-de-negocio.md §2.
 
 import pytest
 
+from src.modules.movements.application.services.movement_references import (
+    MovementReferences,
+)
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 
 from .fakes import (
@@ -27,7 +30,7 @@ def build(ledger: FakeSourceLedger) -> CreateMovementUseCase:
     return CreateMovementUseCase(
         movement_repository=InMemoryMovementRepository(),
         source_ledger=ledger,
-        category_lookup=FakeCategoryLookup(),
+        references=MovementReferences(source_ledger=ledger, category_lookup=FakeCategoryLookup()),
         idempotency_store=InMemoryIdempotencyStore(),
         unit_of_work=ImmediateUnitOfWork(),
         clock=FixedClock(),
@@ -200,7 +203,7 @@ async def test_the_whole_write_runs_inside_one_unit_of_work() -> None:
     use_case = CreateMovementUseCase(
         movement_repository=InMemoryMovementRepository(),
         source_ledger=ledger,
-        category_lookup=FakeCategoryLookup(),
+        references=MovementReferences(source_ledger=ledger, category_lookup=FakeCategoryLookup()),
         idempotency_store=InMemoryIdempotencyStore(),
         unit_of_work=unit_of_work,
         clock=FixedClock(),
@@ -228,7 +231,7 @@ async def test_the_movement_is_stored_with_a_positive_amount_and_its_currency() 
     use_case = CreateMovementUseCase(
         movement_repository=repository,
         source_ledger=ledger,
-        category_lookup=FakeCategoryLookup(),
+        references=MovementReferences(source_ledger=ledger, category_lookup=FakeCategoryLookup()),
         idempotency_store=InMemoryIdempotencyStore(),
         unit_of_work=ImmediateUnitOfWork(),
         clock=FixedClock(),

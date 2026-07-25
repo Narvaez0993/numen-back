@@ -2,25 +2,26 @@ from dataclasses import dataclass
 
 from src.modules.movements.application.dto.movement import MovementDTO
 from src.modules.movements.application.dto.movement_commands import CreateMovementInputDTO
-from src.modules.movements.application.ports.category_lookup import CategoryLookup
 from src.modules.movements.application.ports.idempotency_store import (
     IdempotencyConflictError,
     IdempotencyStore,
 )
 from src.modules.movements.application.ports.movement_repository import MovementRepository
 from src.modules.movements.application.ports.source_ledger import SourceLedger
+from src.modules.movements.application.services.movement_references import (
+    MovementReferences,
+)
 from src.modules.movements.domain.entities.movement import Movement, SourceRef
 from src.modules.movements.domain.errors import (
     InvalidMovementError,
-    MovementCategoryNotFoundError,
     MovementNotFoundError,
-    SourceNotFoundError,
 )
 from src.modules.movements.domain.validation import (
     build_source_ref,
     clean_description,
     ensure_amount,
     ensure_captured_via,
+    ensure_not_future,
     ensure_occurred_on,
     ensure_shape,
     ensure_type,
@@ -40,7 +41,7 @@ class CreateMovementUseCase:
 
     movement_repository: MovementRepository
     source_ledger: SourceLedger
-    category_lookup: CategoryLookup
+    references: MovementReferences
     idempotency_store: IdempotencyStore
     unit_of_work: UnitOfWork
     clock: Clock
@@ -79,18 +80,16 @@ class CreateMovementUseCase:
         destination = self._build_destination(input_dto)
         ensure_shape(movement_type, source, destination, input_dto.category_id)
 
-        await self._ensure_source_exists(input_dto, source)
-        if destination is not None:
-            await self._ensure_source_exists(input_dto, destination)
+        await self.references.ensure_sources(
+            input_dto.user_id, input_dto.currency, source, destination
+        )
+        await self.references.ensure_category(
+            input_dto.user_id, input_dto.category_id, movement_type
+        )
 
-        if input_dto.category_id is not None:
-            flow = "income" if movement_type == "income" else "expense"
-            exists = await self.category_lookup.exists(
-                input_dto.user_id, input_dto.category_id, flow
-            )
-            if not exists:
-                raise MovementCategoryNotFoundError()
-
+        occurred_on = ensure_not_future(
+            ensure_occurred_on(input_dto.occurred_on), self.clock.now().date()
+        )
         return Movement.create(
             user_id=input_dto.user_id,
             type=movement_type,
@@ -100,7 +99,7 @@ class CreateMovementUseCase:
             source=source,
             destination=destination,
             category_id=input_dto.category_id,
-            occurred_on=ensure_occurred_on(input_dto.occurred_on),
+            occurred_on=occurred_on,
             captured_via=ensure_captured_via(input_dto.captured_via),
             created_at=self.clock.now(),
         )
@@ -112,15 +111,6 @@ class CreateMovementUseCase:
         if input_dto.destination_type is None or input_dto.destination_id is None:
             raise InvalidMovementError("A destination needs both its type and its id")
         return build_source_ref(input_dto.destination_type, input_dto.destination_id)
-
-    async def _ensure_source_exists(
-        self, input_dto: CreateMovementInputDTO, ref: SourceRef
-    ) -> None:
-        snapshot = await self.source_ledger.find(input_dto.user_id, ref)
-        if snapshot is None:
-            raise SourceNotFoundError(f"Source {ref.id} not found")
-        if snapshot.currency != input_dto.currency:
-            raise InvalidMovementError("Source currency does not match yours")
 
     async def _replay(self, input_dto: CreateMovementInputDTO) -> MovementDTO | None:
         assert input_dto.idempotency_key is not None
