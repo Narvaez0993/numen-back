@@ -1,6 +1,31 @@
 from dataclasses import dataclass
 from functools import lru_cache
 
+from src.modules.accounts.adapters.outbound.persistence.repositories.mongo_account_repository import (  # noqa: E501
+    MongoAccountRepository,
+)
+from src.modules.accounts.adapters.outbound.persistence.repositories.mongo_credit_card_repository import (  # noqa: E501
+    MongoCreditCardRepository,
+)
+from src.modules.accounts.application.ports.account_repository import AccountRepository
+from src.modules.accounts.application.ports.credit_card_repository import (
+    CreditCardRepository,
+)
+from src.modules.accounts.application.use_cases.create_account import CreateAccountUseCase
+from src.modules.accounts.application.use_cases.create_credit_card import (
+    CreateCreditCardUseCase,
+)
+from src.modules.accounts.application.use_cases.delete_account import DeleteAccountUseCase
+from src.modules.accounts.application.use_cases.delete_credit_card import (
+    DeleteCreditCardUseCase,
+)
+from src.modules.accounts.application.use_cases.get_accounts_overview import (
+    GetAccountsOverviewUseCase,
+)
+from src.modules.accounts.application.use_cases.update_account import UpdateAccountUseCase
+from src.modules.accounts.application.use_cases.update_credit_card import (
+    UpdateCreditCardUseCase,
+)
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
 from src.modules.auth.adapters.outbound.crypto.jwt_token_service import JwtTokenService
 from src.modules.auth.adapters.outbound.crypto.secrets_code_generator import (
@@ -93,6 +118,17 @@ class Container:
     update_category_use_case: UpdateCategoryUseCase
     delete_category_use_case: DeleteCategoryUseCase
 
+    # Accounts + credit cards
+    account_repository: AccountRepository
+    credit_card_repository: CreditCardRepository
+    get_accounts_overview_use_case: GetAccountsOverviewUseCase
+    create_account_use_case: CreateAccountUseCase
+    update_account_use_case: UpdateAccountUseCase
+    delete_account_use_case: DeleteAccountUseCase
+    create_credit_card_use_case: CreateCreditCardUseCase
+    update_credit_card_use_case: UpdateCreditCardUseCase
+    delete_credit_card_use_case: DeleteCreditCardUseCase
+
 
 def build_container(settings: Settings | None = None) -> Container:
     settings = settings or get_settings()
@@ -111,6 +147,8 @@ def build_container(settings: Settings | None = None) -> Container:
     refresh_token_issuer: RefreshTokenIssuer = SecretsRefreshTokenIssuer()
     email_sender: EmailSender = LoggingEmailSender()
     category_repository: CategoryRepository = MongoCategoryRepository()
+    account_repository: AccountRepository = MongoAccountRepository()
+    credit_card_repository: CreditCardRepository = MongoCreditCardRepository()
 
     session_issuer = SessionIssuer(
         token_service=token_service,
@@ -193,6 +231,34 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         delete_category_use_case=DeleteCategoryUseCase(
             category_repository=category_repository,
+        ),
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+        get_accounts_overview_use_case=GetAccountsOverviewUseCase(
+            account_repository=account_repository,
+            credit_card_repository=credit_card_repository,
+        ),
+        create_account_use_case=CreateAccountUseCase(
+            account_repository=account_repository,
+            clock=clock,
+            free_limit=settings.accounts_free_limit,
+        ),
+        update_account_use_case=UpdateAccountUseCase(
+            account_repository=account_repository,
+        ),
+        delete_account_use_case=DeleteAccountUseCase(
+            account_repository=account_repository,
+        ),
+        create_credit_card_use_case=CreateCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
+            clock=clock,
+            free_limit=settings.credit_cards_free_limit,
+        ),
+        update_credit_card_use_case=UpdateCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
+        ),
+        delete_credit_card_use_case=DeleteCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
         ),
     )
 

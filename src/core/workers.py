@@ -12,6 +12,12 @@ from typing import Any, ClassVar
 from arq.connections import RedisSettings
 
 from src.core.di.container import get_container
+from src.modules.accounts.adapters.outbound.persistence.documents.account_document import (
+    AccountDocument,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
+    CreditCardDocument,
+)
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
 )
@@ -31,6 +37,8 @@ _DOCUMENTS = [
     EmailVerificationCodeDocument,
     RefreshTokenDocument,
     CategoryDocument,
+    AccountDocument,
+    CreditCardDocument,
 ]
 
 

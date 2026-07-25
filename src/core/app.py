@@ -5,6 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.di.container import get_container
+from src.modules.accounts.adapters.inbound.http.routers import (
+    credit_cards_router,
+)
+from src.modules.accounts.adapters.inbound.http.routers import (
+    router as accounts_router,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.account_document import (
+    AccountDocument,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
+    CreditCardDocument,
+)
 from src.modules.auth.adapters.inbound.http.routers import router as auth_router
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
@@ -30,6 +42,8 @@ _DOCUMENTS = [
     EmailVerificationCodeDocument,
     RefreshTokenDocument,
     CategoryDocument,
+    AccountDocument,
+    CreditCardDocument,
 ]
 
 
@@ -64,6 +78,8 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(categories_router)
+    app.include_router(accounts_router)
+    app.include_router(credit_cards_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:

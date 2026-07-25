@@ -43,6 +43,7 @@ type = forbidden
 source_modules =
     src.modules.auth.domain
     src.modules.categories.domain
+    src.modules.accounts.domain
     src.shared.domain
 forbidden_modules =
     fastapi
@@ -65,6 +66,7 @@ type = forbidden
 source_modules =
     src.modules.auth.application
     src.modules.categories.application
+    src.modules.accounts.application
     src.shared.application
 forbidden_modules =
     fastapi
@@ -80,6 +82,7 @@ forbidden_modules =
     argon2
     src.modules.auth.adapters
     src.modules.categories.adapters
+    src.modules.accounts.adapters
 
 [importlinter:contract:categories-hexagonal-layers]
 name = categories module — hexagonal layers (adapters → application → domain)
@@ -105,4 +108,30 @@ source_modules =
     src.modules.categories.adapters.outbound
 forbidden_modules =
     src.modules.categories.adapters.inbound
+allow_indirect_imports = True
+
+[importlinter:contract:accounts-hexagonal-layers]
+name = accounts module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.accounts.adapters
+    src.modules.accounts.application
+    src.modules.accounts.domain
+
+[importlinter:contract:accounts-inbound-forbids-outbound]
+name = accounts — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.accounts.adapters.inbound
+forbidden_modules =
+    src.modules.accounts.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:accounts-outbound-forbids-inbound]
+name = accounts — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.accounts.adapters.outbound
+forbidden_modules =
+    src.modules.accounts.adapters.inbound
 allow_indirect_imports = True

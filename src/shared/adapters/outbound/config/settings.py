@@ -47,8 +47,10 @@ class Settings(BaseSettings):
     verification_max_attempts: int = 5
     verification_resend_cooldown_seconds: int = 60
 
-    # Categories
+    # Free-plan capacity
     categories_free_limit: int = 2
+    accounts_free_limit: int = 2
+    credit_cards_free_limit: int = 1
 
     # AI providers
     anthropic_api_key: str = ""
