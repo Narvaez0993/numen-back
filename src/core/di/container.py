@@ -1,6 +1,31 @@
 from dataclasses import dataclass
 from functools import lru_cache
 
+from src.modules.accounts.adapters.outbound.persistence.repositories.mongo_account_repository import (  # noqa: E501
+    MongoAccountRepository,
+)
+from src.modules.accounts.adapters.outbound.persistence.repositories.mongo_credit_card_repository import (  # noqa: E501
+    MongoCreditCardRepository,
+)
+from src.modules.accounts.application.ports.account_repository import AccountRepository
+from src.modules.accounts.application.ports.credit_card_repository import (
+    CreditCardRepository,
+)
+from src.modules.accounts.application.use_cases.create_account import CreateAccountUseCase
+from src.modules.accounts.application.use_cases.create_credit_card import (
+    CreateCreditCardUseCase,
+)
+from src.modules.accounts.application.use_cases.delete_account import DeleteAccountUseCase
+from src.modules.accounts.application.use_cases.delete_credit_card import (
+    DeleteCreditCardUseCase,
+)
+from src.modules.accounts.application.use_cases.get_accounts_overview import (
+    GetAccountsOverviewUseCase,
+)
+from src.modules.accounts.application.use_cases.update_account import UpdateAccountUseCase
+from src.modules.accounts.application.use_cases.update_credit_card import (
+    UpdateCreditCardUseCase,
+)
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
 from src.modules.auth.adapters.outbound.crypto.jwt_token_service import JwtTokenService
 from src.modules.auth.adapters.outbound.crypto.secrets_code_generator import (
@@ -38,10 +63,47 @@ from src.modules.auth.application.use_cases.resend_code import ResendCodeUseCase
 from src.modules.auth.application.use_cases.update_display_name import (
     UpdateDisplayNameUseCase,
 )
+from src.modules.auth.application.use_cases.update_preferences import (
+    UpdatePreferencesUseCase,
+)
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
+from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
+    MongoCategoryRepository,
+)
+from src.modules.categories.application.ports.category_repository import CategoryRepository
+from src.modules.categories.application.use_cases.create_category import CreateCategoryUseCase
+from src.modules.categories.application.use_cases.delete_category import DeleteCategoryUseCase
+from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
+from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
+from src.modules.movements.adapters.outbound.catalog.categories_category_lookup import (
+    CategoriesCategoryLookup,
+)
+from src.modules.movements.adapters.outbound.ledger.accounts_source_ledger import (
+    AccountsSourceLedger,
+)
+from src.modules.movements.adapters.outbound.persistence.repositories.mongo_idempotency_store import (  # noqa: E501
+    MongoIdempotencyStore,
+)
+from src.modules.movements.adapters.outbound.persistence.repositories.mongo_movement_repository import (  # noqa: E501
+    MongoMovementRepository,
+)
+from src.modules.movements.application.ports.category_lookup import CategoryLookup
+from src.modules.movements.application.ports.idempotency_store import IdempotencyStore
+from src.modules.movements.application.ports.movement_repository import MovementRepository
+from src.modules.movements.application.ports.source_ledger import SourceLedger
+from src.modules.movements.application.services.movement_references import (
+    MovementReferences,
+)
+from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
+from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
+from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.update_movement import UpdateMovementUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
+from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
+from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
 from src.shared.adapters.outbound.time.system_clock import SystemClock
 from src.shared.application.ports.clock import Clock
+from src.shared.application.ports.unit_of_work import UnitOfWork
 
 
 @dataclass
@@ -59,6 +121,7 @@ class Container:
     password_hasher: PasswordHasher
     token_service: TokenService
     clock: Clock
+    unit_of_work: UnitOfWork
     verification_code_repository: VerificationCodeRepository
     refresh_token_repository: RefreshTokenRepository
     code_generator: CodeGenerator
@@ -73,6 +136,36 @@ class Container:
     refresh_use_case: RefreshUseCase
     logout_use_case: LogoutUseCase
     update_display_name_use_case: UpdateDisplayNameUseCase
+    update_preferences_use_case: UpdatePreferencesUseCase
+
+    # Categories
+    category_repository: CategoryRepository
+    list_categories_use_case: ListCategoriesUseCase
+    create_category_use_case: CreateCategoryUseCase
+    update_category_use_case: UpdateCategoryUseCase
+    delete_category_use_case: DeleteCategoryUseCase
+
+    # Accounts + credit cards
+    account_repository: AccountRepository
+    credit_card_repository: CreditCardRepository
+    get_accounts_overview_use_case: GetAccountsOverviewUseCase
+    create_account_use_case: CreateAccountUseCase
+    update_account_use_case: UpdateAccountUseCase
+    delete_account_use_case: DeleteAccountUseCase
+    create_credit_card_use_case: CreateCreditCardUseCase
+    update_credit_card_use_case: UpdateCreditCardUseCase
+    delete_credit_card_use_case: DeleteCreditCardUseCase
+
+    # Movements
+    movement_repository: MovementRepository
+    source_ledger: SourceLedger
+    category_lookup: CategoryLookup
+    idempotency_store: IdempotencyStore
+    movement_references: MovementReferences
+    create_movement_use_case: CreateMovementUseCase
+    list_movements_use_case: ListMovementsUseCase
+    update_movement_use_case: UpdateMovementUseCase
+    delete_movement_use_case: DeleteMovementUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -86,15 +179,28 @@ def build_container(settings: Settings | None = None) -> Container:
         access_ttl_minutes=settings.jwt_access_ttl_minutes,
     )
     clock: Clock = SystemClock()
-    verification_code_repository: VerificationCodeRepository = (
-        MongoVerificationCodeRepository()
-    )
+    unit_of_work: UnitOfWork = MongoUnitOfWork(get_mongo_client(settings))
+    verification_code_repository: VerificationCodeRepository = MongoVerificationCodeRepository()
     refresh_token_repository: RefreshTokenRepository = MongoRefreshTokenRepository()
-    code_generator: CodeGenerator = SecretsCodeGenerator(
-        length=settings.verification_code_length
-    )
+    code_generator: CodeGenerator = SecretsCodeGenerator(length=settings.verification_code_length)
     refresh_token_issuer: RefreshTokenIssuer = SecretsRefreshTokenIssuer()
     email_sender: EmailSender = LoggingEmailSender()
+    category_repository: CategoryRepository = MongoCategoryRepository()
+    account_repository: AccountRepository = MongoAccountRepository()
+    credit_card_repository: CreditCardRepository = MongoCreditCardRepository()
+    movement_repository: MovementRepository = MongoMovementRepository()
+    idempotency_store: IdempotencyStore = MongoIdempotencyStore()
+    source_ledger: SourceLedger = AccountsSourceLedger(
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+    )
+    category_lookup: CategoryLookup = CategoriesCategoryLookup(
+        category_repository=category_repository,
+    )
+    movement_references = MovementReferences(
+        source_ledger=source_ledger,
+        category_lookup=category_lookup,
+    )
 
     session_issuer = SessionIssuer(
         token_service=token_service,
@@ -110,6 +216,7 @@ def build_container(settings: Settings | None = None) -> Container:
         password_hasher=password_hasher,
         token_service=token_service,
         clock=clock,
+        unit_of_work=unit_of_work,
         verification_code_repository=verification_code_repository,
         refresh_token_repository=refresh_token_repository,
         code_generator=code_generator,
@@ -160,6 +267,79 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         update_display_name_use_case=UpdateDisplayNameUseCase(
             auth_repository=auth_repository,
+        ),
+        update_preferences_use_case=UpdatePreferencesUseCase(
+            auth_repository=auth_repository,
+        ),
+        category_repository=category_repository,
+        list_categories_use_case=ListCategoriesUseCase(
+            category_repository=category_repository,
+        ),
+        create_category_use_case=CreateCategoryUseCase(
+            category_repository=category_repository,
+            free_limit=settings.categories_free_limit,
+        ),
+        update_category_use_case=UpdateCategoryUseCase(
+            category_repository=category_repository,
+        ),
+        delete_category_use_case=DeleteCategoryUseCase(
+            category_repository=category_repository,
+        ),
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+        get_accounts_overview_use_case=GetAccountsOverviewUseCase(
+            account_repository=account_repository,
+            credit_card_repository=credit_card_repository,
+        ),
+        create_account_use_case=CreateAccountUseCase(
+            account_repository=account_repository,
+            clock=clock,
+            free_limit=settings.accounts_free_limit,
+        ),
+        update_account_use_case=UpdateAccountUseCase(
+            account_repository=account_repository,
+        ),
+        delete_account_use_case=DeleteAccountUseCase(
+            account_repository=account_repository,
+        ),
+        create_credit_card_use_case=CreateCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
+            clock=clock,
+            free_limit=settings.credit_cards_free_limit,
+        ),
+        update_credit_card_use_case=UpdateCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
+        ),
+        delete_credit_card_use_case=DeleteCreditCardUseCase(
+            credit_card_repository=credit_card_repository,
+        ),
+        movement_repository=movement_repository,
+        source_ledger=source_ledger,
+        category_lookup=category_lookup,
+        idempotency_store=idempotency_store,
+        movement_references=movement_references,
+        create_movement_use_case=CreateMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            references=movement_references,
+            idempotency_store=idempotency_store,
+            unit_of_work=unit_of_work,
+            clock=clock,
+        ),
+        list_movements_use_case=ListMovementsUseCase(
+            movement_repository=movement_repository,
+        ),
+        update_movement_use_case=UpdateMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            references=movement_references,
+            unit_of_work=unit_of_work,
+            clock=clock,
+        ),
+        delete_movement_use_case=DeleteMovementUseCase(
+            movement_repository=movement_repository,
+            source_ledger=source_ledger,
+            unit_of_work=unit_of_work,
         ),
     )
 

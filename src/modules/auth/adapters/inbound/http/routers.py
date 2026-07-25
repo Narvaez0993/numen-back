@@ -12,6 +12,7 @@ from src.modules.auth.adapters.inbound.http.schemas import (
     RegisterRequest,
     ResendCodeRequest,
     UpdateMeRequest,
+    UpdatePreferencesRequest,
     VerifyEmailRequest,
 )
 from src.modules.auth.application.dto.login import LoginInputDTO
@@ -19,6 +20,8 @@ from src.modules.auth.application.dto.register import RegisterInputDTO
 from src.modules.auth.application.dto.resend_code import ResendCodeInputDTO
 from src.modules.auth.application.dto.token import LogoutInputDTO, RefreshInputDTO
 from src.modules.auth.application.dto.update_display_name import UpdateDisplayNameInputDTO
+from src.modules.auth.application.dto.update_preferences import UpdatePreferencesInputDTO
+from src.modules.auth.application.dto.user_profile import UserProfileDTO
 from src.modules.auth.application.dto.verify_email import VerifyEmailInputDTO
 from src.modules.auth.application.ports.auth_repository import AuthRepository
 from src.modules.auth.application.use_cases.login import LoginUseCase
@@ -28,6 +31,9 @@ from src.modules.auth.application.use_cases.register import RegisterUseCase
 from src.modules.auth.application.use_cases.resend_code import ResendCodeUseCase
 from src.modules.auth.application.use_cases.update_display_name import (
     UpdateDisplayNameUseCase,
+)
+from src.modules.auth.application.use_cases.update_preferences import (
+    UpdatePreferencesUseCase,
 )
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
 from src.modules.auth.domain.errors import InvalidCredentialsError
@@ -84,6 +90,12 @@ def _depends_update_display_name_use_case() -> UpdateDisplayNameUseCase:
     return get_container().update_display_name_use_case
 
 
+def _depends_update_preferences_use_case() -> UpdatePreferencesUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().update_preferences_use_case
+
+
 @router.post(
     "/register",
     status_code=status.HTTP_201_CREATED,
@@ -108,9 +120,7 @@ async def verify_email(
     body: VerifyEmailRequest,
     use_case: VerifyEmailUseCase = Depends(_depends_verify_email_use_case),
 ) -> AuthResponse:
-    output = await use_case.execute(
-        VerifyEmailInputDTO(email=body.email, code=body.code)
-    )
+    output = await use_case.execute(VerifyEmailInputDTO(email=body.email, code=body.code))
     return AuthResponse(**output.model_dump())
 
 
@@ -128,9 +138,7 @@ async def login(
     body: LoginRequest,
     use_case: LoginUseCase = Depends(_depends_login_use_case),
 ) -> AuthResponse:
-    output = await use_case.execute(
-        LoginInputDTO(email=body.email, password=body.password)
-    )
+    output = await use_case.execute(LoginInputDTO(email=body.email, password=body.password))
     return AuthResponse(**output.model_dump())
 
 
@@ -159,13 +167,7 @@ async def me(
     user = await repository.find_by_id(user_id)
     if user is None:
         raise InvalidCredentialsError()
-    return CurrentUserResponse(
-        user_id=str(user.id),
-        email=user.email.value,
-        display_name=user.display_name,
-        tier=user.tier,
-        email_verified=user.email_verified,
-    )
+    return CurrentUserResponse(**UserProfileDTO.from_domain(user).model_dump())
 
 
 @router.patch("/me", response_model=CurrentUserResponse)
@@ -176,5 +178,22 @@ async def update_me(
 ) -> CurrentUserResponse:
     output = await use_case.execute(
         UpdateDisplayNameInputDTO(user_id=user_id, display_name=body.display_name)
+    )
+    return CurrentUserResponse(**output.model_dump())
+
+
+@router.patch("/me/preferences", response_model=CurrentUserResponse)
+async def update_my_preferences(
+    body: UpdatePreferencesRequest,
+    user_id: UUID = Depends(get_current_user_id),
+    use_case: UpdatePreferencesUseCase = Depends(_depends_update_preferences_use_case),
+) -> CurrentUserResponse:
+    output = await use_case.execute(
+        UpdatePreferencesInputDTO(
+            user_id=user_id,
+            language=body.language,
+            currency=body.currency,
+            theme=body.theme,
+        )
     )
     return CurrentUserResponse(**output.model_dump())

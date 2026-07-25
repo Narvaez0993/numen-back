@@ -6,11 +6,18 @@ When modules expose async jobs, register their functions in `WorkerSettings.func
 and their cron schedules in `WorkerSettings.cron_jobs`. Initial setup has no jobs;
 this file exists so the worker container can boot cleanly.
 """
+
 from typing import Any, ClassVar
 
 from arq.connections import RedisSettings
 
 from src.core.di.container import get_container
+from src.modules.accounts.adapters.outbound.persistence.documents.account_document import (
+    AccountDocument,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
+    CreditCardDocument,
+)
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
 )
@@ -18,6 +25,15 @@ from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_docu
     RefreshTokenDocument,
 )
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
+from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
+    CategoryDocument,
+)
+from src.modules.movements.adapters.outbound.persistence.documents.idempotency_key_document import (
+    IdempotencyKeyDocument,
+)
+from src.modules.movements.adapters.outbound.persistence.documents.movement_document import (
+    MovementDocument,
+)
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
 from src.shared.adapters.outbound.persistence.mongo import close_mongo_client, init_persistence
@@ -26,6 +42,11 @@ _DOCUMENTS = [
     UserDocument,
     EmailVerificationCodeDocument,
     RefreshTokenDocument,
+    CategoryDocument,
+    AccountDocument,
+    CreditCardDocument,
+    MovementDocument,
+    IdempotencyKeyDocument,
 ]
 
 

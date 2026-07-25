@@ -5,6 +5,7 @@ from uuid import UUID, uuid4
 
 from src.modules.auth.domain.value_objects.email import Email
 from src.modules.auth.domain.value_objects.hashed_password import HashedPassword
+from src.modules.auth.domain.value_objects.preferences import UserPreferences
 
 Tier = Literal["free", "plus"]
 
@@ -18,6 +19,7 @@ class User:
     tier: Tier
     email_verified: bool
     created_at: datetime
+    preferences: UserPreferences
 
     @classmethod
     def new(
@@ -35,6 +37,7 @@ class User:
             tier="free",
             email_verified=False,
             created_at=created_at,
+            preferences=UserPreferences.default(),
         )
 
     def with_password(self, hashed_password: HashedPassword) -> "User":
@@ -48,3 +51,6 @@ class User:
 
     def with_display_name(self, display_name: str) -> "User":
         return replace(self, display_name=display_name)
+
+    def with_preferences(self, preferences: UserPreferences) -> "User":
+        return replace(self, preferences=preferences)

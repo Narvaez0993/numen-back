@@ -5,6 +5,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.core.di.container import get_container
+from src.modules.accounts.adapters.inbound.http.routers import (
+    credit_cards_router,
+)
+from src.modules.accounts.adapters.inbound.http.routers import (
+    router as accounts_router,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.account_document import (
+    AccountDocument,
+)
+from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
+    CreditCardDocument,
+)
 from src.modules.auth.adapters.inbound.http.routers import router as auth_router
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
@@ -13,6 +25,21 @@ from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_docu
     RefreshTokenDocument,
 )
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
+from src.modules.categories.adapters.inbound.http.routers import (
+    router as categories_router,
+)
+from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
+    CategoryDocument,
+)
+from src.modules.movements.adapters.inbound.http.routers import (
+    router as movements_router,
+)
+from src.modules.movements.adapters.outbound.persistence.documents.idempotency_key_document import (
+    IdempotencyKeyDocument,
+)
+from src.modules.movements.adapters.outbound.persistence.documents.movement_document import (
+    MovementDocument,
+)
 from src.shared.adapters.inbound.http.exception_handlers import register_exception_handlers
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -23,6 +50,11 @@ _DOCUMENTS = [
     UserDocument,
     EmailVerificationCodeDocument,
     RefreshTokenDocument,
+    CategoryDocument,
+    AccountDocument,
+    CreditCardDocument,
+    MovementDocument,
+    IdempotencyKeyDocument,
 ]
 
 
@@ -56,6 +88,10 @@ def create_app() -> FastAPI:
     register_exception_handlers(app)
 
     app.include_router(auth_router)
+    app.include_router(categories_router)
+    app.include_router(accounts_router)
+    app.include_router(credit_cards_router)
+    app.include_router(movements_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:

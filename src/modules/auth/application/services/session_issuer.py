@@ -47,6 +47,9 @@ class SessionIssuer:
             email=user.email.value,
             display_name=user.display_name,
             tier=user.tier,
+            language=user.preferences.language,
+            currency=user.preferences.currency,
+            theme=user.preferences.theme,
             access_token=access_token,
             refresh_token=raw_token,
         )
