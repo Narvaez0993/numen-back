@@ -89,6 +89,9 @@ class FakeSourceLedger:
         self.accounts: dict[str, int] = dict(accounts or {})
         self.cards: dict[str, int] = dict(cards or {})
         self.currency = CURRENCY
+        # How many deltas were applied — lets a test assert that an edit which
+        # moved no money wrote nothing.
+        self.applied = 0
 
     async def find(self, user_id: UUID, ref: SourceRef) -> SourceSnapshot | None:
         pool = self.accounts if ref.type == "account" else self.cards
@@ -97,6 +100,7 @@ class FakeSourceLedger:
         return SourceSnapshot(ref=ref, type=ref.type, currency=self.currency)
 
     async def apply_delta(self, user_id: UUID, ref: SourceRef, delta: int) -> None:
+        self.applied += 1
         if ref.type == "account":
             self.accounts[ref.id] += delta
         else:
