@@ -23,9 +23,7 @@ class MongoRefreshTokenRepository:
         await existing.save()
 
     async def find_by_hash(self, token_hash: str) -> RefreshToken | None:
-        doc = await RefreshTokenDocument.find_one(
-            RefreshTokenDocument.token_hash == token_hash
-        )
+        doc = await RefreshTokenDocument.find_one(RefreshTokenDocument.token_hash == token_hash)
         return RefreshTokenMapper.to_domain(doc) if doc else None
 
     async def revoke_family(self, family_id: UUID, revoked_at: datetime) -> None:

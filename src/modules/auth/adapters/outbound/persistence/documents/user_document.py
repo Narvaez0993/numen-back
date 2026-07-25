@@ -4,7 +4,18 @@ from uuid import uuid4
 
 import pymongo
 from beanie import Document, Indexed
-from pydantic import Field
+from pydantic import BaseModel, Field
+
+from src.shared.domain.money import DEFAULT_CURRENCY
+
+
+class UserPreferencesDocument(BaseModel):
+    """Embedded preferences. Defaults cover documents written before this field
+    existed, so no migration is needed."""
+
+    language: str = "es"
+    currency: str = DEFAULT_CURRENCY
+    theme: str = "system"
 
 
 class UserDocument(Document):
@@ -15,6 +26,7 @@ class UserDocument(Document):
     tier: str = "free"
     email_verified: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    preferences: UserPreferencesDocument = Field(default_factory=UserPreferencesDocument)
 
     class Settings:
         name = "users"

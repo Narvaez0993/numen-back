@@ -4,6 +4,7 @@ Note: this does NOT spin up Mongo (the app's lifespan would try to connect).
 We use a fresh app instance with the lifespan skipped via TestClient context
 not entering. For real e2e against Mongo + Redis, use the docker-compose stack.
 """
+
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 

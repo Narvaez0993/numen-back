@@ -51,9 +51,9 @@ async def test_resend_within_cooldown_is_rejected() -> None:
     )
 
     with pytest.raises(ResendCooldownError):
-        await _use_case(
-            InMemoryAuthRepository(user), codes, email_sender, clock
-        ).execute(ResendCodeInputDTO(email="demo@numen.app"))
+        await _use_case(InMemoryAuthRepository(user), codes, email_sender, clock).execute(
+            ResendCodeInputDTO(email="demo@numen.app")
+        )
 
 
 @pytest.mark.asyncio

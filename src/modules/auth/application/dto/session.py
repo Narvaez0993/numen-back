@@ -8,5 +8,10 @@ class AuthSessionDTO(BaseModel):
     email: str
     display_name: str
     tier: str
+    # Carried in the session payload so the client can format money right away
+    # without a second call to /auth/me.
+    language: str
+    currency: str
+    theme: str
     access_token: str
     refresh_token: str
