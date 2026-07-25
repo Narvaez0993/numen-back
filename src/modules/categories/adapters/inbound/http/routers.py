@@ -17,7 +17,8 @@ from src.modules.categories.application.use_cases.delete_category import DeleteC
 from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
 from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
 from src.shared.adapters.inbound.http.dependencies import (
-    get_current_tier,
+    CallerContext,
+    get_caller,
     get_current_user_id,
 )
 
@@ -60,14 +61,13 @@ async def list_categories(
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=CategoryResponse)
 async def create_category(
     body: CreateCategoryRequest,
-    user_id: UUID = Depends(get_current_user_id),
-    tier: str = Depends(get_current_tier),
+    caller: CallerContext = Depends(get_caller),
     use_case: CreateCategoryUseCase = Depends(_depends_create_use_case),
 ) -> CategoryResponse:
     output = await use_case.execute(
         CreateCategoryInputDTO(
-            user_id=user_id,
-            tier=tier,
+            user_id=caller.user_id,
+            tier=caller.tier,
             name=body.name,
             icon=body.icon,
             color=body.color,

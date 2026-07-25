@@ -44,6 +44,9 @@ class AuthResponse(BaseModel):
     email: str
     display_name: str
     tier: str
+    language: str
+    currency: str
+    theme: str
     access_token: str
     refresh_token: str
 
@@ -54,7 +57,18 @@ class CurrentUserResponse(BaseModel):
     display_name: str
     tier: str
     email_verified: bool
+    language: str
+    currency: str
+    theme: str
 
 
 class UpdateMeRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=80)
+
+
+class UpdatePreferencesRequest(BaseModel):
+    """Partial: omitted fields keep their stored value."""
+
+    language: str | None = Field(default=None, max_length=8)
+    currency: str | None = Field(default=None, max_length=3)
+    theme: str | None = Field(default=None, max_length=8)

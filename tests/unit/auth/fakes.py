@@ -7,6 +7,7 @@ from src.modules.auth.domain.entities.refresh_token import RefreshToken
 from src.modules.auth.domain.entities.user import User
 from src.modules.auth.domain.value_objects.email import Email
 from src.modules.auth.domain.value_objects.hashed_password import HashedPassword
+from src.modules.auth.domain.value_objects.preferences import UserPreferences
 
 FIXED_NOW = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
 
@@ -64,9 +65,7 @@ class InMemoryRefreshTokenRepository:
 
     async def revoke_family(self, family_id: UUID, revoked_at: datetime) -> None:
         self.tokens = [
-            t.revoke(revoked_at)
-            if t.family_id == family_id and t.revoked_at is None
-            else t
+            t.revoke(revoked_at) if t.family_id == family_id and t.revoked_at is None else t
             for t in self.tokens
         ]
 
@@ -122,6 +121,7 @@ def make_user(*, verified: bool = False, password: str = "demo1234") -> User:
         tier="free",
         email_verified=verified,
         created_at=FIXED_NOW,
+        preferences=UserPreferences.default(),
     )
 
 

@@ -38,6 +38,9 @@ from src.modules.auth.application.use_cases.resend_code import ResendCodeUseCase
 from src.modules.auth.application.use_cases.update_display_name import (
     UpdateDisplayNameUseCase,
 )
+from src.modules.auth.application.use_cases.update_preferences import (
+    UpdatePreferencesUseCase,
+)
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
 from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
     MongoCategoryRepository,
@@ -81,6 +84,7 @@ class Container:
     refresh_use_case: RefreshUseCase
     logout_use_case: LogoutUseCase
     update_display_name_use_case: UpdateDisplayNameUseCase
+    update_preferences_use_case: UpdatePreferencesUseCase
 
     # Categories
     category_repository: CategoryRepository
@@ -171,6 +175,9 @@ def build_container(settings: Settings | None = None) -> Container:
             clock=clock,
         ),
         update_display_name_use_case=UpdateDisplayNameUseCase(
+            auth_repository=auth_repository,
+        ),
+        update_preferences_use_case=UpdatePreferencesUseCase(
             auth_repository=auth_repository,
         ),
         category_repository=category_repository,

@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from uuid import UUID
 
 import jwt
@@ -37,10 +38,23 @@ def get_current_user_id(
         raise UnauthorizedError("Invalid token subject format") from exc
 
 
-async def get_current_tier(
+@dataclass(frozen=True)
+class CallerContext:
+    """Per-request facts about the caller that write endpoints need.
+
+    `tier` drives Free-capacity gates; `currency` is the user's home currency,
+    the unit every amount they store is denominated in.
+    """
+
+    user_id: UUID
+    tier: str
+    currency: str
+
+
+async def get_caller(
     user_id: UUID = Depends(get_current_user_id),
-) -> str:
-    """Resolve the caller's plan tier for Free-capacity gates.
+) -> CallerContext:
+    """Resolve tier + currency in a single read (FastAPI caches it per request).
 
     Reads through the composition root's auth repository. Local import keeps this
     inbound adapter decoupled from `core` at module-import time (no cycle) — the
@@ -51,4 +65,8 @@ async def get_current_tier(
     user = await get_container().auth_repository.find_by_id(user_id)
     if user is None:
         raise UnauthorizedError("Unknown user")
-    return user.tier
+    return CallerContext(
+        user_id=user.id,
+        tier=user.tier,
+        currency=user.preferences.currency,
+    )

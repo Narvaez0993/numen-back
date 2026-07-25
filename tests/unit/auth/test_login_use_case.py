@@ -24,9 +24,9 @@ def _use_case(repo: InMemoryAuthRepository) -> LoginUseCase:
 
 @pytest.mark.asyncio
 async def test_login_returns_session_on_valid_credentials() -> None:
-    result = await _use_case(
-        InMemoryAuthRepository(make_user(verified=True))
-    ).execute(LoginInputDTO(email="demo@numen.app", password="demo1234"))
+    result = await _use_case(InMemoryAuthRepository(make_user(verified=True))).execute(
+        LoginInputDTO(email="demo@numen.app", password="demo1234")
+    )
 
     assert result.email == "demo@numen.app"
     assert result.access_token.startswith("access-")
@@ -36,17 +36,17 @@ async def test_login_returns_session_on_valid_credentials() -> None:
 @pytest.mark.asyncio
 async def test_login_rejects_unverified_email() -> None:
     with pytest.raises(EmailNotVerifiedError):
-        await _use_case(
-            InMemoryAuthRepository(make_user(verified=False))
-        ).execute(LoginInputDTO(email="demo@numen.app", password="demo1234"))
+        await _use_case(InMemoryAuthRepository(make_user(verified=False))).execute(
+            LoginInputDTO(email="demo@numen.app", password="demo1234")
+        )
 
 
 @pytest.mark.asyncio
 async def test_login_rejects_wrong_password() -> None:
     with pytest.raises(InvalidCredentialsError):
-        await _use_case(
-            InMemoryAuthRepository(make_user(verified=True))
-        ).execute(LoginInputDTO(email="demo@numen.app", password="wrong"))
+        await _use_case(InMemoryAuthRepository(make_user(verified=True))).execute(
+            LoginInputDTO(email="demo@numen.app", password="wrong")
+        )
 
 
 @pytest.mark.asyncio

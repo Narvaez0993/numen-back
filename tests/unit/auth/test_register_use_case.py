@@ -76,7 +76,5 @@ async def test_register_rejects_existing_email() -> None:
 
     with pytest.raises(UserAlreadyExistsError):
         await use_case.execute(
-            RegisterInputDTO(
-                email="demo@numen.app", password="strong-enough", display_name="Dup"
-            )
+            RegisterInputDTO(email="demo@numen.app", password="strong-enough", display_name="Dup")
         )
