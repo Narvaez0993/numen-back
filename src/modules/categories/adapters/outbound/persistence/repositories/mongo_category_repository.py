@@ -7,6 +7,7 @@ from src.modules.categories.adapters.outbound.persistence.mappers.category_mappe
     CategoryMapper,
 )
 from src.modules.categories.domain.entities.category import Category
+from src.shared.adapters.outbound.persistence.mongo import current_session
 
 
 class MongoCategoryRepository:
@@ -30,13 +31,13 @@ class MongoCategoryRepository:
     async def save(self, category: Category) -> None:
         existing = await CategoryDocument.get(category.id)
         if existing is None:
-            await CategoryMapper.to_document(category).insert()
+            await CategoryMapper.to_document(category).insert(session=current_session())
             return
         existing.name = category.name
         existing.icon = category.icon
         existing.color = category.color
         existing.flow = category.flow
-        await existing.save()
+        await existing.save(session=current_session())
 
     async def delete(self, user_id: UUID, category_id: str) -> None:
         doc = await CategoryDocument.find_one(
@@ -44,4 +45,4 @@ class MongoCategoryRepository:
             CategoryDocument.user_id == str(user_id),
         )
         if doc is not None:
-            await doc.delete()
+            await doc.delete(session=current_session())

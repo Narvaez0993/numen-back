@@ -7,6 +7,7 @@ from src.modules.accounts.adapters.outbound.persistence.mappers.credit_card_mapp
     CreditCardMapper,
 )
 from src.modules.accounts.domain.entities.credit_card import CreditCard
+from src.shared.adapters.outbound.persistence.mongo import current_session
 
 
 class MongoCreditCardRepository:
@@ -30,7 +31,7 @@ class MongoCreditCardRepository:
     async def save(self, card: CreditCard) -> None:
         existing = await CreditCardDocument.get(card.id)
         if existing is None:
-            await CreditCardMapper.to_document(card).insert()
+            await CreditCardMapper.to_document(card).insert(session=current_session())
             return
         existing.name = card.name
         existing.icon = card.icon
@@ -41,7 +42,7 @@ class MongoCreditCardRepository:
         existing.limit = card.limit
         existing.cutoff_day = card.cutoff_day
         existing.due_day = card.due_day
-        await existing.save()
+        await existing.save(session=current_session())
 
     async def delete(self, user_id: UUID, card_id: str) -> None:
         doc = await CreditCardDocument.find_one(
@@ -49,4 +50,4 @@ class MongoCreditCardRepository:
             CreditCardDocument.user_id == str(user_id),
         )
         if doc is not None:
-            await doc.delete()
+            await doc.delete(session=current_session())

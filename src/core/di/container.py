@@ -76,8 +76,11 @@ from src.modules.categories.application.use_cases.delete_category import DeleteC
 from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
 from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
+from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
+from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
 from src.shared.adapters.outbound.time.system_clock import SystemClock
 from src.shared.application.ports.clock import Clock
+from src.shared.application.ports.unit_of_work import UnitOfWork
 
 
 @dataclass
@@ -95,6 +98,7 @@ class Container:
     password_hasher: PasswordHasher
     token_service: TokenService
     clock: Clock
+    unit_of_work: UnitOfWork
     verification_code_repository: VerificationCodeRepository
     refresh_token_repository: RefreshTokenRepository
     code_generator: CodeGenerator
@@ -141,6 +145,7 @@ def build_container(settings: Settings | None = None) -> Container:
         access_ttl_minutes=settings.jwt_access_ttl_minutes,
     )
     clock: Clock = SystemClock()
+    unit_of_work: UnitOfWork = MongoUnitOfWork(get_mongo_client(settings))
     verification_code_repository: VerificationCodeRepository = MongoVerificationCodeRepository()
     refresh_token_repository: RefreshTokenRepository = MongoRefreshTokenRepository()
     code_generator: CodeGenerator = SecretsCodeGenerator(length=settings.verification_code_length)
@@ -164,6 +169,7 @@ def build_container(settings: Settings | None = None) -> Container:
         password_hasher=password_hasher,
         token_service=token_service,
         clock=clock,
+        unit_of_work=unit_of_work,
         verification_code_repository=verification_code_repository,
         refresh_token_repository=refresh_token_repository,
         code_generator=code_generator,

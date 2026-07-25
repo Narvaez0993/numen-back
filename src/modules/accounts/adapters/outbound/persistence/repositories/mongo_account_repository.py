@@ -7,6 +7,7 @@ from src.modules.accounts.adapters.outbound.persistence.mappers.account_mapper i
     AccountMapper,
 )
 from src.modules.accounts.domain.entities.account import Account
+from src.shared.adapters.outbound.persistence.mongo import current_session
 
 
 class MongoAccountRepository:
@@ -34,7 +35,7 @@ class MongoAccountRepository:
     async def save(self, account: Account) -> None:
         existing = await AccountDocument.get(account.id)
         if existing is None:
-            await AccountMapper.to_document(account).insert()
+            await AccountMapper.to_document(account).insert(session=current_session())
             return
         existing.kind = account.kind
         existing.name = account.name
@@ -44,7 +45,7 @@ class MongoAccountRepository:
         existing.currency = account.currency
         existing.balance = account.balance
         existing.initial_balance = account.initial_balance
-        await existing.save()
+        await existing.save(session=current_session())
 
     async def delete(self, user_id: UUID, account_id: str) -> None:
         doc = await AccountDocument.find_one(
@@ -52,4 +53,4 @@ class MongoAccountRepository:
             AccountDocument.user_id == str(user_id),
         )
         if doc is not None:
-            await doc.delete()
+            await doc.delete(session=current_session())
