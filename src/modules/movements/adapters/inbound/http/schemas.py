@@ -50,3 +50,20 @@ class UpdateMovementRequest(BaseModel):
     destination_id: str | None = Field(default=None, min_length=1, max_length=64)
     category_id: str | None = Field(default=None, max_length=64)
     occurred_on: str | None = Field(default=None, min_length=1, max_length=10)
+
+
+class CategorySpendResponse(BaseModel):
+    """`category_id: null` is the unclassified bucket."""
+
+    category_id: str | None
+    spent: int
+    count: int
+
+
+class MovementSummaryResponse(BaseModel):
+    date_from: str
+    date_to: str
+    expense_total: int
+    income_total: int
+    count: int
+    by_category: list[CategorySpendResponse]

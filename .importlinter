@@ -45,6 +45,7 @@ source_modules =
     src.modules.categories.domain
     src.modules.accounts.domain
     src.modules.movements.domain
+    src.modules.overview.domain
     src.shared.domain
 forbidden_modules =
     fastapi
@@ -69,6 +70,7 @@ source_modules =
     src.modules.categories.application
     src.modules.accounts.application
     src.modules.movements.application
+    src.modules.overview.application
     src.shared.application
 forbidden_modules =
     fastapi
@@ -86,6 +88,7 @@ forbidden_modules =
     src.modules.categories.adapters
     src.modules.accounts.adapters
     src.modules.movements.adapters
+    src.modules.overview.adapters
 
 [importlinter:contract:categories-hexagonal-layers]
 name = categories module — hexagonal layers (adapters → application → domain)
@@ -179,3 +182,62 @@ forbidden_modules =
     src.modules.accounts
     src.modules.categories
     src.modules.auth
+
+[importlinter:contract:overview-hexagonal-layers]
+name = overview module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.overview.adapters
+    src.modules.overview.application
+    src.modules.overview.domain
+
+[importlinter:contract:overview-inbound-forbids-outbound]
+name = overview — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.overview.adapters.inbound
+forbidden_modules =
+    src.modules.overview.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:overview-outbound-forbids-inbound]
+name = overview — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.overview.adapters.outbound
+forbidden_modules =
+    src.modules.overview.adapters.inbound
+allow_indirect_imports = True
+
+# `overview` is the only module that reads across the others, and it may only do
+# so from its OUTERMOST layer. Its hexagon declares what it needs (BalanceReader,
+# MovementSummaryReader) and stays ignorant of who answers — which is what keeps
+# Home growable (budgets, goals) without any module learning about another.
+[importlinter:contract:overview-hexagon-independent-of-siblings]
+name = overview — the hexagon cannot import sibling modules (only its adapters may)
+type = forbidden
+source_modules =
+    src.modules.overview.domain
+    src.modules.overview.application
+forbidden_modules =
+    src.modules.accounts
+    src.modules.movements
+    src.modules.categories
+    src.modules.auth
+
+# Nobody depends on `overview`: it is a leaf that composes read views. If this
+# ever breaks, a module started reaching for a screen's shape instead of its own.
+[importlinter:contract:nobody-depends-on-overview]
+name = no module may import overview
+type = forbidden
+source_modules =
+    src.modules.auth
+    src.modules.categories
+    src.modules.accounts
+    src.modules.movements
+forbidden_modules =
+    src.modules.overview
+# Indirect only: every router reaches the composition root through the shared
+# `get_caller` dependency, and the root instantiates everything — including this
+# module. Direct imports are what this contract is about.
+allow_indirect_imports = True

@@ -30,5 +30,5 @@ class ListMovementsUseCase:
             category_id=input_dto.category_id,
             limit=max(1, min(input_dto.limit, MAX_LIMIT)),
         )
-        movements = await self.movement_repository.list(query)
+        movements = await self.movement_repository.search(query)
         return ListMovementsOutputDTO(movements=[MovementDTO.from_domain(m) for m in movements])
