@@ -34,6 +34,9 @@ from src.modules.auth.adapters.outbound.crypto.secrets_code_generator import (
 from src.modules.auth.adapters.outbound.crypto.secrets_refresh_token_issuer import (
     SecretsRefreshTokenIssuer,
 )
+from src.modules.auth.adapters.outbound.currency.sources_currency_scope import (
+    SourcesCurrencyScope,
+)
 from src.modules.auth.adapters.outbound.email.logging_email_sender import LoggingEmailSender
 from src.modules.auth.adapters.outbound.persistence.repositories.mongo_auth_repository import (
     MongoAuthRepository,
@@ -46,6 +49,7 @@ from src.modules.auth.adapters.outbound.persistence.repositories.mongo_verificat
 )
 from src.modules.auth.application.ports.auth_repository import AuthRepository
 from src.modules.auth.application.ports.code_generator import CodeGenerator
+from src.modules.auth.application.ports.currency_scope import CurrencyScope
 from src.modules.auth.application.ports.email_sender import EmailSender
 from src.modules.auth.application.ports.password_hasher import PasswordHasher
 from src.modules.auth.application.ports.refresh_token_issuer import RefreshTokenIssuer
@@ -201,6 +205,7 @@ class Container:
     code_generator: CodeGenerator
     refresh_token_issuer: RefreshTokenIssuer
     email_sender: EmailSender
+    currency_scope: CurrencyScope
 
     # Use cases (inbound ports)
     login_use_case: LoginUseCase
@@ -285,6 +290,7 @@ def build_container(settings: Settings | None = None) -> Container:
     code_generator: CodeGenerator = SecretsCodeGenerator(length=settings.verification_code_length)
     refresh_token_issuer: RefreshTokenIssuer = SecretsRefreshTokenIssuer()
     email_sender: EmailSender = LoggingEmailSender()
+    currency_scope: CurrencyScope = SourcesCurrencyScope()
     category_repository: CategoryRepository = MongoCategoryRepository()
     account_repository: AccountRepository = MongoAccountRepository()
     credit_card_repository: CreditCardRepository = MongoCreditCardRepository()
@@ -383,6 +389,7 @@ def build_container(settings: Settings | None = None) -> Container:
         code_generator=code_generator,
         refresh_token_issuer=refresh_token_issuer,
         email_sender=email_sender,
+        currency_scope=currency_scope,
         login_use_case=LoginUseCase(
             auth_repository=auth_repository,
             password_hasher=password_hasher,
@@ -431,6 +438,8 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         update_preferences_use_case=UpdatePreferencesUseCase(
             auth_repository=auth_repository,
+            currency_scope=currency_scope,
+            unit_of_work=unit_of_work,
         ),
         category_repository=category_repository,
         list_categories_use_case=ListCategoriesUseCase(

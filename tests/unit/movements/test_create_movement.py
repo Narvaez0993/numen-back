@@ -7,6 +7,7 @@ from src.modules.movements.application.use_cases.create_movement import CreateMo
 from src.modules.movements.domain.errors import (
     InvalidMovementError,
     MovementCategoryNotFoundError,
+    SourceCurrencyMismatchError,
     SourceNotFoundError,
 )
 
@@ -161,10 +162,12 @@ async def test_rejects_a_destination_that_does_not_exist() -> None:
 
 @pytest.mark.asyncio
 async def test_rejects_a_source_in_another_currency() -> None:
+    """Its own error, not the generic one: this is the single failure the user cannot
+    fix from the form — their account and their home currency disagree."""
     ledger = FakeSourceLedger(accounts={"nequi": 0})
     ledger.currency = "USD"
 
-    with pytest.raises(InvalidMovementError):
+    with pytest.raises(SourceCurrencyMismatchError):
         await build(ledger=ledger).execute(create_input(new_user_id()))
 
 

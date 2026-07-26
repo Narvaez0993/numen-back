@@ -25,8 +25,20 @@ class UserPreferences:
     theme: Theme
 
     @classmethod
-    def default(cls) -> "UserPreferences":
-        return cls(language="es", currency=DEFAULT_CURRENCY, theme="system")
+    def default(cls, *, language: str = "es", currency: str | None = None) -> "UserPreferences":
+        """Starting settings. `currency` comes from the device's region when the
+        client knows it: a Colombian who never opens the picker used to be handed USD
+        in silence and typed "1.000.000" meaning pesos.
+
+        An unsupported code falls back instead of failing — a wrong currency is worth
+        correcting, not worth blocking a registration over.
+        """
+        chosen = (currency or "").strip().upper()
+        return cls(
+            language=cast(Language, language) if language in ALLOWED_LANGUAGES else "es",
+            currency=chosen if is_supported_currency(chosen) else DEFAULT_CURRENCY,
+            theme="system",
+        )
 
     @classmethod
     def create(cls, language: str, currency: str, theme: str) -> "UserPreferences":

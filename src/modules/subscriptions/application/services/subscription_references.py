@@ -5,8 +5,8 @@ from src.modules.subscriptions.application.ports.category_reader import Category
 from src.modules.subscriptions.application.ports.source_reader import SourceReader
 from src.modules.subscriptions.domain.entities.subscription import SourceRef
 from src.modules.subscriptions.domain.errors import (
-    InvalidSubscriptionError,
     SubscriptionCategoryNotFoundError,
+    SubscriptionSourceCurrencyMismatchError,
     SubscriptionSourceNotFoundError,
 )
 
@@ -27,7 +27,7 @@ class SubscriptionReferences:
         if snapshot is None:
             raise SubscriptionSourceNotFoundError(f"Source {ref.id} not found")
         if snapshot.currency != currency:
-            raise InvalidSubscriptionError("Source currency does not match yours")
+            raise SubscriptionSourceCurrencyMismatchError(snapshot.currency, currency)
 
     async def ensure_category(self, user_id: UUID, category_id: str | None) -> None:
         if category_id is None:

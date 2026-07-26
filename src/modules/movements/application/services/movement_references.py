@@ -5,8 +5,8 @@ from src.modules.movements.application.ports.category_lookup import CategoryLook
 from src.modules.movements.application.ports.source_ledger import SourceLedger
 from src.modules.movements.domain.entities.movement import MovementType, SourceRef
 from src.modules.movements.domain.errors import (
-    InvalidMovementError,
     MovementCategoryNotFoundError,
+    SourceCurrencyMismatchError,
     SourceNotFoundError,
 )
 
@@ -27,7 +27,7 @@ class MovementReferences:
         if snapshot is None:
             raise SourceNotFoundError(f"Source {ref.id} not found")
         if snapshot.currency != currency:
-            raise InvalidMovementError("Source currency does not match yours")
+            raise SourceCurrencyMismatchError(snapshot.currency, currency)
 
     async def ensure_sources(
         self, user_id: UUID, currency: str, source: SourceRef, destination: SourceRef | None

@@ -7,6 +7,10 @@ class RegisterRequest(BaseModel):
     # Optional: the name is collected after email verification and set via
     # PATCH /auth/me.
     display_name: str = Field(default="", max_length=80)
+    language: str | None = Field(default=None, max_length=8)
+    currency: str | None = Field(default=None, max_length=8)
+    """The device's language and currency. Both fall back when unsupported: the app
+    is global-first and the client knows its region better than the server does."""
 
 
 class LoginRequest(BaseModel):

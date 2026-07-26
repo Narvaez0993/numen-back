@@ -42,3 +42,15 @@ class ChargeAlreadySettledError(ConflictError):
 
     def __init__(self) -> None:
         super().__init__("This charge was already settled")
+
+
+class SubscriptionSourceCurrencyMismatchError(ValidationError):
+    """Same as movements': the account and the home currency disagree, and no form
+    field the user can edit will fix it — so it says what is actually wrong."""
+
+    code: ClassVar[str] = "subscriptions.source_currency_mismatch"
+
+    def __init__(self, source_currency: str, user_currency: str) -> None:
+        super().__init__(
+            f"This source is in {source_currency} and your currency is {user_currency}"
+        )

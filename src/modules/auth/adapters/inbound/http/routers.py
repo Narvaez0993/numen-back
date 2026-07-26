@@ -110,6 +110,8 @@ async def register(
             email=body.email,
             password=body.password,
             display_name=body.display_name,
+            language=body.language,
+            currency=body.currency,
         )
     )
     return PendingVerificationResponse(**output.model_dump())

@@ -27,6 +27,7 @@ from src.modules.subscriptions.domain.errors import (
     InvalidSubscriptionError,
     SubscriptionCategoryNotFoundError,
     SubscriptionNotFoundError,
+    SubscriptionSourceCurrencyMismatchError,
     SubscriptionSourceNotFoundError,
 )
 
@@ -126,9 +127,11 @@ async def test_an_unknown_category_is_refused() -> None:
 
 @pytest.mark.asyncio
 async def test_a_source_in_another_currency_is_refused() -> None:
+    """Its own error: the account and the home currency disagree, and no field in the
+    form fixes that — the message has to say what is actually wrong."""
     _, create, _, _, _ = build(source_reader=FakeSourceReader(currency="USD"))
 
-    with pytest.raises(InvalidSubscriptionError):
+    with pytest.raises(SubscriptionSourceCurrencyMismatchError):
         await create.execute(create_input())
 
 
