@@ -114,6 +114,35 @@ from src.modules.overview.application.ports.movement_summary_reader import (
 from src.modules.overview.application.use_cases.get_home_overview import (
     GetHomeOverviewUseCase,
 )
+from src.modules.subscriptions.adapters.outbound.catalog.categories_category_reader import (
+    CategoriesCategoryReader,
+)
+from src.modules.subscriptions.adapters.outbound.ledger.accounts_source_reader import (
+    AccountsSourceReader,
+)
+from src.modules.subscriptions.adapters.outbound.persistence.repositories.mongo_subscription_repository import (  # noqa: E501
+    MongoSubscriptionRepository,
+)
+from src.modules.subscriptions.application.ports.category_reader import CategoryReader
+from src.modules.subscriptions.application.ports.source_reader import SourceReader
+from src.modules.subscriptions.application.ports.subscription_repository import (
+    SubscriptionRepository,
+)
+from src.modules.subscriptions.application.services.subscription_references import (
+    SubscriptionReferences,
+)
+from src.modules.subscriptions.application.use_cases.create_subscription import (
+    CreateSubscriptionUseCase,
+)
+from src.modules.subscriptions.application.use_cases.delete_subscription import (
+    DeleteSubscriptionUseCase,
+)
+from src.modules.subscriptions.application.use_cases.list_subscriptions import (
+    ListSubscriptionsUseCase,
+)
+from src.modules.subscriptions.application.use_cases.update_subscription import (
+    UpdateSubscriptionUseCase,
+)
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
 from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
@@ -184,6 +213,16 @@ class Container:
     delete_movement_use_case: DeleteMovementUseCase
     summarize_movements_use_case: SummarizeMovementsUseCase
 
+    # Subscriptions
+    subscription_repository: SubscriptionRepository
+    subscription_source_reader: SourceReader
+    subscription_category_reader: CategoryReader
+    subscription_references: SubscriptionReferences
+    list_subscriptions_use_case: ListSubscriptionsUseCase
+    create_subscription_use_case: CreateSubscriptionUseCase
+    update_subscription_use_case: UpdateSubscriptionUseCase
+    delete_subscription_use_case: DeleteSubscriptionUseCase
+
     # Overview (Home) — the only module that reads across the others
     balance_reader: BalanceReader
     movement_summary_reader: MovementSummaryReader
@@ -240,6 +279,19 @@ def build_container(settings: Settings | None = None) -> Container:
     movement_summary_reader: MovementSummaryReader = MovementsSummaryReader(
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
+    )
+
+    subscription_repository: SubscriptionRepository = MongoSubscriptionRepository()
+    subscription_source_reader: SourceReader = AccountsSourceReader(
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+    )
+    subscription_category_reader: CategoryReader = CategoriesCategoryReader(
+        category_repository=category_repository,
+    )
+    subscription_references = SubscriptionReferences(
+        source_reader=subscription_source_reader,
+        category_reader=subscription_category_reader,
     )
 
     session_issuer = SessionIssuer(
@@ -377,6 +429,25 @@ def build_container(settings: Settings | None = None) -> Container:
             unit_of_work=unit_of_work,
         ),
         summarize_movements_use_case=summarize_movements_use_case,
+        subscription_repository=subscription_repository,
+        subscription_source_reader=subscription_source_reader,
+        subscription_category_reader=subscription_category_reader,
+        subscription_references=subscription_references,
+        list_subscriptions_use_case=ListSubscriptionsUseCase(
+            subscription_repository=subscription_repository,
+        ),
+        create_subscription_use_case=CreateSubscriptionUseCase(
+            subscription_repository=subscription_repository,
+            references=subscription_references,
+            clock=clock,
+        ),
+        update_subscription_use_case=UpdateSubscriptionUseCase(
+            subscription_repository=subscription_repository,
+            references=subscription_references,
+        ),
+        delete_subscription_use_case=DeleteSubscriptionUseCase(
+            subscription_repository=subscription_repository,
+        ),
         balance_reader=balance_reader,
         movement_summary_reader=movement_summary_reader,
         get_home_overview_use_case=GetHomeOverviewUseCase(
