@@ -120,16 +120,28 @@ from src.modules.subscriptions.adapters.outbound.catalog.categories_category_rea
 from src.modules.subscriptions.adapters.outbound.ledger.accounts_source_reader import (
     AccountsSourceReader,
 )
+from src.modules.subscriptions.adapters.outbound.ledger.movements_expense_recorder import (
+    MovementsExpenseRecorder,
+)
+from src.modules.subscriptions.adapters.outbound.persistence.repositories.mongo_charge_repository import (  # noqa: E501
+    MongoChargeRepository,
+)
 from src.modules.subscriptions.adapters.outbound.persistence.repositories.mongo_subscription_repository import (  # noqa: E501
     MongoSubscriptionRepository,
 )
 from src.modules.subscriptions.application.ports.category_reader import CategoryReader
+from src.modules.subscriptions.application.ports.charge_repository import ChargeRepository
+from src.modules.subscriptions.application.ports.expense_recorder import ExpenseRecorder
 from src.modules.subscriptions.application.ports.source_reader import SourceReader
 from src.modules.subscriptions.application.ports.subscription_repository import (
     SubscriptionRepository,
 )
+from src.modules.subscriptions.application.services.charge_settlement import ChargeSettlement
 from src.modules.subscriptions.application.services.subscription_references import (
     SubscriptionReferences,
+)
+from src.modules.subscriptions.application.use_cases.confirm_charge import (
+    ConfirmChargeUseCase,
 )
 from src.modules.subscriptions.application.use_cases.create_subscription import (
     CreateSubscriptionUseCase,
@@ -137,9 +149,17 @@ from src.modules.subscriptions.application.use_cases.create_subscription import 
 from src.modules.subscriptions.application.use_cases.delete_subscription import (
     DeleteSubscriptionUseCase,
 )
+from src.modules.subscriptions.application.use_cases.list_charges import ListChargesUseCase
 from src.modules.subscriptions.application.use_cases.list_subscriptions import (
     ListSubscriptionsUseCase,
 )
+from src.modules.subscriptions.application.use_cases.open_due_charges import (
+    OpenDueChargesUseCase,
+)
+from src.modules.subscriptions.application.use_cases.settle_unconfirmed_charges import (
+    SettleUnconfirmedChargesUseCase,
+)
+from src.modules.subscriptions.application.use_cases.skip_charge import SkipChargeUseCase
 from src.modules.subscriptions.application.use_cases.update_subscription import (
     UpdateSubscriptionUseCase,
 )
@@ -222,6 +242,14 @@ class Container:
     create_subscription_use_case: CreateSubscriptionUseCase
     update_subscription_use_case: UpdateSubscriptionUseCase
     delete_subscription_use_case: DeleteSubscriptionUseCase
+    charge_repository: ChargeRepository
+    expense_recorder: ExpenseRecorder
+    charge_settlement: ChargeSettlement
+    list_charges_use_case: ListChargesUseCase
+    confirm_charge_use_case: ConfirmChargeUseCase
+    skip_charge_use_case: SkipChargeUseCase
+    open_due_charges_use_case: OpenDueChargesUseCase
+    settle_unconfirmed_charges_use_case: SettleUnconfirmedChargesUseCase
 
     # Overview (Home) — the only module that reads across the others
     balance_reader: BalanceReader
@@ -292,6 +320,28 @@ def build_container(settings: Settings | None = None) -> Container:
     subscription_references = SubscriptionReferences(
         source_reader=subscription_source_reader,
         category_reader=subscription_category_reader,
+    )
+
+    charge_repository: ChargeRepository = MongoChargeRepository()
+    # The charge engine records through the movements use case, never its collection:
+    # cash-basis, atomicity and idempotency stay owned by the module that defines them.
+    create_movement_use_case = CreateMovementUseCase(
+        movement_repository=movement_repository,
+        source_ledger=source_ledger,
+        references=movement_references,
+        idempotency_store=idempotency_store,
+        unit_of_work=unit_of_work,
+        clock=clock,
+    )
+    expense_recorder: ExpenseRecorder = MovementsExpenseRecorder(
+        create_movement=create_movement_use_case,
+    )
+    charge_settlement = ChargeSettlement(
+        charge_repository=charge_repository,
+        subscription_repository=subscription_repository,
+        expense_recorder=expense_recorder,
+        unit_of_work=unit_of_work,
+        clock=clock,
     )
 
     session_issuer = SessionIssuer(
@@ -407,14 +457,7 @@ def build_container(settings: Settings | None = None) -> Container:
         category_lookup=category_lookup,
         idempotency_store=idempotency_store,
         movement_references=movement_references,
-        create_movement_use_case=CreateMovementUseCase(
-            movement_repository=movement_repository,
-            source_ledger=source_ledger,
-            references=movement_references,
-            idempotency_store=idempotency_store,
-            unit_of_work=unit_of_work,
-            clock=clock,
-        ),
+        create_movement_use_case=create_movement_use_case,
         list_movements_use_case=list_movements_use_case,
         update_movement_use_case=UpdateMovementUseCase(
             movement_repository=movement_repository,
@@ -447,6 +490,28 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         delete_subscription_use_case=DeleteSubscriptionUseCase(
             subscription_repository=subscription_repository,
+        ),
+        charge_repository=charge_repository,
+        expense_recorder=expense_recorder,
+        charge_settlement=charge_settlement,
+        list_charges_use_case=ListChargesUseCase(charge_repository=charge_repository),
+        confirm_charge_use_case=ConfirmChargeUseCase(
+            charge_repository=charge_repository,
+            settlement=charge_settlement,
+        ),
+        skip_charge_use_case=SkipChargeUseCase(
+            charge_repository=charge_repository,
+            settlement=charge_settlement,
+        ),
+        open_due_charges_use_case=OpenDueChargesUseCase(
+            subscription_repository=subscription_repository,
+            charge_repository=charge_repository,
+            clock=clock,
+        ),
+        settle_unconfirmed_charges_use_case=SettleUnconfirmedChargesUseCase(
+            charge_repository=charge_repository,
+            settlement=charge_settlement,
+            clock=clock,
         ),
         balance_reader=balance_reader,
         movement_summary_reader=movement_summary_reader,

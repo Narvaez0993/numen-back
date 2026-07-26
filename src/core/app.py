@@ -43,6 +43,18 @@ from src.modules.movements.adapters.outbound.persistence.documents.movement_docu
 from src.modules.overview.adapters.inbound.http.routers import (
     router as home_router,
 )
+from src.modules.subscriptions.adapters.inbound.http.charge_routers import (
+    router as subscription_charges_router,
+)
+from src.modules.subscriptions.adapters.inbound.http.routers import (
+    router as subscriptions_router,
+)
+from src.modules.subscriptions.adapters.outbound.persistence.documents.subscription_charge_document import (  # noqa: E501
+    SubscriptionChargeDocument,
+)
+from src.modules.subscriptions.adapters.outbound.persistence.documents.subscription_document import (  # noqa: E501
+    SubscriptionDocument,
+)
 from src.shared.adapters.inbound.http.exception_handlers import register_exception_handlers
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -58,6 +70,8 @@ _DOCUMENTS = [
     CreditCardDocument,
     MovementDocument,
     IdempotencyKeyDocument,
+    SubscriptionDocument,
+    SubscriptionChargeDocument,
 ]
 
 
@@ -95,6 +109,8 @@ def create_app() -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(credit_cards_router)
     app.include_router(movements_router)
+    app.include_router(subscriptions_router)
+    app.include_router(subscription_charges_router)
     app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])
