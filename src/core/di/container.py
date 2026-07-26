@@ -97,7 +97,23 @@ from src.modules.movements.application.services.movement_references import (
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.summarize_movements import (
+    SummarizeMovementsUseCase,
+)
 from src.modules.movements.application.use_cases.update_movement import UpdateMovementUseCase
+from src.modules.overview.adapters.outbound.balance.accounts_balance_reader import (
+    AccountsBalanceReader,
+)
+from src.modules.overview.adapters.outbound.movements.movements_summary_reader import (
+    MovementsSummaryReader,
+)
+from src.modules.overview.application.ports.balance_reader import BalanceReader
+from src.modules.overview.application.ports.movement_summary_reader import (
+    MovementSummaryReader,
+)
+from src.modules.overview.application.use_cases.get_home_overview import (
+    GetHomeOverviewUseCase,
+)
 from src.shared.adapters.outbound.config.settings import Settings, get_settings
 from src.shared.adapters.outbound.persistence.mongo import get_mongo_client
 from src.shared.adapters.outbound.persistence.mongo_unit_of_work import MongoUnitOfWork
@@ -166,6 +182,12 @@ class Container:
     list_movements_use_case: ListMovementsUseCase
     update_movement_use_case: UpdateMovementUseCase
     delete_movement_use_case: DeleteMovementUseCase
+    summarize_movements_use_case: SummarizeMovementsUseCase
+
+    # Overview (Home) — the only module that reads across the others
+    balance_reader: BalanceReader
+    movement_summary_reader: MovementSummaryReader
+    get_home_overview_use_case: GetHomeOverviewUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -200,6 +222,24 @@ def build_container(settings: Settings | None = None) -> Container:
     movement_references = MovementReferences(
         source_ledger=source_ledger,
         category_lookup=category_lookup,
+    )
+
+    accounts_overview_use_case = GetAccountsOverviewUseCase(
+        account_repository=account_repository,
+        credit_card_repository=credit_card_repository,
+    )
+    summarize_movements_use_case = SummarizeMovementsUseCase(
+        movement_repository=movement_repository,
+    )
+    list_movements_use_case = ListMovementsUseCase(
+        movement_repository=movement_repository,
+    )
+    balance_reader: BalanceReader = AccountsBalanceReader(
+        accounts_overview=accounts_overview_use_case,
+    )
+    movement_summary_reader: MovementSummaryReader = MovementsSummaryReader(
+        summarize_movements=summarize_movements_use_case,
+        list_movements=list_movements_use_case,
     )
 
     session_issuer = SessionIssuer(
@@ -287,10 +327,7 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         account_repository=account_repository,
         credit_card_repository=credit_card_repository,
-        get_accounts_overview_use_case=GetAccountsOverviewUseCase(
-            account_repository=account_repository,
-            credit_card_repository=credit_card_repository,
-        ),
+        get_accounts_overview_use_case=accounts_overview_use_case,
         create_account_use_case=CreateAccountUseCase(
             account_repository=account_repository,
             clock=clock,
@@ -326,9 +363,7 @@ def build_container(settings: Settings | None = None) -> Container:
             unit_of_work=unit_of_work,
             clock=clock,
         ),
-        list_movements_use_case=ListMovementsUseCase(
-            movement_repository=movement_repository,
-        ),
+        list_movements_use_case=list_movements_use_case,
         update_movement_use_case=UpdateMovementUseCase(
             movement_repository=movement_repository,
             source_ledger=source_ledger,
@@ -340,6 +375,13 @@ def build_container(settings: Settings | None = None) -> Container:
             movement_repository=movement_repository,
             source_ledger=source_ledger,
             unit_of_work=unit_of_work,
+        ),
+        summarize_movements_use_case=summarize_movements_use_case,
+        balance_reader=balance_reader,
+        movement_summary_reader=movement_summary_reader,
+        get_home_overview_use_case=GetHomeOverviewUseCase(
+            balance_reader=balance_reader,
+            movement_summary_reader=movement_summary_reader,
         ),
     )
 

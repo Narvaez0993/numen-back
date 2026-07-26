@@ -6,7 +6,11 @@ from uuid import UUID, uuid4
 from src.modules.movements.application.ports.idempotency_store import (
     IdempotencyConflictError,
 )
-from src.modules.movements.application.ports.movement_repository import MovementQuery
+from src.modules.movements.application.ports.movement_repository import (
+    CategorySpend,
+    MovementQuery,
+    MovementTotals,
+)
 from src.modules.movements.application.ports.source_ledger import SourceSnapshot
 from src.modules.movements.domain.entities.movement import Movement, SourceRef
 
@@ -40,7 +44,7 @@ class InMemoryMovementRepository:
     def __init__(self, *movements: Movement) -> None:
         self.movements: list[Movement] = list(movements)
 
-    async def list(self, query: MovementQuery) -> list[Movement]:
+    async def search(self, query: MovementQuery) -> list[Movement]:
         found = [m for m in self.movements if m.user_id == query.user_id]
         if query.date_from is not None:
             found = [m for m in found if m.occurred_on >= query.date_from]
@@ -74,6 +78,39 @@ class InMemoryMovementRepository:
         self.movements = [
             m for m in self.movements if not (m.id == movement_id and m.user_id == user_id)
         ]
+
+    def _in_range(self, user_id: UUID, date_from: str, date_to: str) -> list[Movement]:
+        return [
+            m
+            for m in self.movements
+            if m.user_id == user_id and date_from <= m.occurred_on <= date_to
+        ]
+
+    async def totals(self, user_id: UUID, date_from: str, date_to: str) -> MovementTotals:
+        found = self._in_range(user_id, date_from, date_to)
+        return MovementTotals(
+            expense_total=sum(m.amount for m in found if m.type == "expense"),
+            income_total=sum(m.amount for m in found if m.type == "income"),
+            count=len(found),
+        )
+
+    async def spend_by_category(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> list[CategorySpend]:
+        buckets: dict[str | None, list[Movement]] = {}
+        for movement in self._in_range(user_id, date_from, date_to):
+            if movement.type != "expense":
+                continue
+            buckets.setdefault(movement.category_id, []).append(movement)
+        spends = [
+            CategorySpend(
+                category_id=category_id,
+                spent=sum(m.amount for m in items),
+                count=len(items),
+            )
+            for category_id, items in buckets.items()
+        ]
+        return sorted(spends, key=lambda s: s.spent, reverse=True)
 
 
 class FakeSourceLedger:
