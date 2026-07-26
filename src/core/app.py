@@ -40,6 +40,9 @@ from src.modules.movements.adapters.outbound.persistence.documents.idempotency_k
 from src.modules.movements.adapters.outbound.persistence.documents.movement_document import (
     MovementDocument,
 )
+from src.modules.overview.adapters.inbound.http.routers import (
+    router as home_router,
+)
 from src.shared.adapters.inbound.http.exception_handlers import register_exception_handlers
 from src.shared.adapters.outbound.config.settings import get_settings
 from src.shared.adapters.outbound.logging.setup import configure_logging
@@ -92,6 +95,7 @@ def create_app() -> FastAPI:
     app.include_router(accounts_router)
     app.include_router(credit_cards_router)
     app.include_router(movements_router)
+    app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:
