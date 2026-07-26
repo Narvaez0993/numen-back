@@ -4,6 +4,7 @@ from src.modules.movements.adapters.inbound.http.schemas import (
     CreateMovementRequest,
     MovementResponse,
     MovementsListResponse,
+    MovementSummaryResponse,
     UpdateMovementRequest,
 )
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
@@ -12,9 +13,15 @@ from src.modules.movements.application.dto.movement_commands import (
     DeleteMovementInputDTO,
     UpdateMovementInputDTO,
 )
+from src.modules.movements.application.dto.movement_summary import (
+    SummarizeMovementsInputDTO,
+)
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.summarize_movements import (
+    SummarizeMovementsUseCase,
+)
 from src.modules.movements.application.use_cases.update_movement import UpdateMovementUseCase
 from src.shared.adapters.inbound.http.dependencies import CallerContext, get_caller
 
@@ -31,6 +38,12 @@ def _depends_list_use_case() -> ListMovementsUseCase:
     from src.core.di.container import get_container
 
     return get_container().list_movements_use_case
+
+
+def _depends_summarize_use_case() -> SummarizeMovementsUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().summarize_movements_use_case
 
 
 def _depends_update_use_case() -> UpdateMovementUseCase:
@@ -68,6 +81,20 @@ async def list_movements(
         )
     )
     return MovementsListResponse(**output.model_dump())
+
+
+@router.get("/summary", response_model=MovementSummaryResponse)
+async def summarize_movements(
+    date_from: str = Query(alias="from"),
+    date_to: str = Query(alias="to"),
+    caller: CallerContext = Depends(get_caller),
+    use_case: SummarizeMovementsUseCase = Depends(_depends_summarize_use_case),
+) -> MovementSummaryResponse:
+    """What a period added up to, aggregated by the store in two queries."""
+    output = await use_case.execute(
+        SummarizeMovementsInputDTO(user_id=caller.user_id, date_from=date_from, date_to=date_to)
+    )
+    return MovementSummaryResponse(**output.model_dump())
 
 
 @router.post("", status_code=status.HTTP_201_CREATED, response_model=MovementResponse)
