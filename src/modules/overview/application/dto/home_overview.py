@@ -48,6 +48,7 @@ class RecentMovementDTO(BaseModel):
     destination_id: str | None
     category_id: str | None
     occurred_on: str
+    captured_via: str
 
     @classmethod
     def from_view(cls, view: RecentMovementView) -> "RecentMovementDTO":

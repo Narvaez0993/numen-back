@@ -42,6 +42,7 @@ class RecentMovementView:
     destination_id: str | None
     category_id: str | None
     occurred_on: str
+    captured_via: str
 
 
 class MovementSummaryReader(Protocol):

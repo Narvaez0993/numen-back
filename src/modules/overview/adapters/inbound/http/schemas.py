@@ -37,6 +37,7 @@ class RecentMovementResponse(BaseModel):
     destination_id: str | None
     category_id: str | None
     occurred_on: str
+    captured_via: str
 
 
 class HomeOverviewResponse(BaseModel):

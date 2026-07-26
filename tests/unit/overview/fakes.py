@@ -70,6 +70,7 @@ def recent_movement(
         destination_id=None,
         category_id="cafe",
         occurred_on="2026-07-25",
+        captured_via="manual",
     )
 
 
