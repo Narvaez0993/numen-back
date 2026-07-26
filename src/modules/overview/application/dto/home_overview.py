@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from src.modules.overview.application.ports.movement_summary_reader import (
     RecentMovementView,
 )
+from src.modules.overview.application.ports.upcoming_charges_reader import UpcomingChargeView
 
 
 class HomeOverviewInputDTO(BaseModel):
@@ -56,6 +57,21 @@ class RecentMovementDTO(BaseModel):
         return cls(**vars(view))
 
 
+class UpcomingChargeDTO(BaseModel):
+    """A recurring charge about to land. `pending` means it is due and waiting for the
+    user to confirm; `charge_id` is what confirm/skip act on."""
+
+    subscription_id: str
+    charge_on: str
+    amount: int
+    status: str
+    charge_id: str | None
+
+    @classmethod
+    def from_view(cls, view: UpcomingChargeView) -> "UpcomingChargeDTO":
+        return cls(**vars(view))
+
+
 class HomeOverviewOutputDTO(BaseModel):
     """The whole Home screen in one read. Amounts in the minor unit of `currency`."""
 
@@ -69,3 +85,4 @@ class HomeOverviewOutputDTO(BaseModel):
     daily: DailyDTO
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
+    upcoming: list[UpcomingChargeDTO]

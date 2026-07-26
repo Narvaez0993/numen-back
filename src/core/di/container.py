@@ -107,9 +107,15 @@ from src.modules.overview.adapters.outbound.balance.accounts_balance_reader impo
 from src.modules.overview.adapters.outbound.movements.movements_summary_reader import (
     MovementsSummaryReader,
 )
+from src.modules.overview.adapters.outbound.subscriptions.subscriptions_upcoming_charges_reader import (  # noqa: E501
+    SubscriptionsUpcomingChargesReader,
+)
 from src.modules.overview.application.ports.balance_reader import BalanceReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
+)
+from src.modules.overview.application.ports.upcoming_charges_reader import (
+    UpcomingChargesReader,
 )
 from src.modules.overview.application.use_cases.get_home_overview import (
     GetHomeOverviewUseCase,
@@ -152,6 +158,9 @@ from src.modules.subscriptions.application.use_cases.delete_subscription import 
 from src.modules.subscriptions.application.use_cases.list_charges import ListChargesUseCase
 from src.modules.subscriptions.application.use_cases.list_subscriptions import (
     ListSubscriptionsUseCase,
+)
+from src.modules.subscriptions.application.use_cases.list_upcoming_charges import (
+    ListUpcomingChargesUseCase,
 )
 from src.modules.subscriptions.application.use_cases.open_due_charges import (
     OpenDueChargesUseCase,
@@ -252,8 +261,10 @@ class Container:
     settle_unconfirmed_charges_use_case: SettleUnconfirmedChargesUseCase
 
     # Overview (Home) — the only module that reads across the others
+    list_upcoming_charges_use_case: ListUpcomingChargesUseCase
     balance_reader: BalanceReader
     movement_summary_reader: MovementSummaryReader
+    upcoming_charges_reader: UpcomingChargesReader
     get_home_overview_use_case: GetHomeOverviewUseCase
 
 
@@ -342,6 +353,14 @@ def build_container(settings: Settings | None = None) -> Container:
         expense_recorder=expense_recorder,
         unit_of_work=unit_of_work,
         clock=clock,
+    )
+
+    list_upcoming_charges_use_case = ListUpcomingChargesUseCase(
+        subscription_repository=subscription_repository,
+        charge_repository=charge_repository,
+    )
+    upcoming_charges_reader: UpcomingChargesReader = SubscriptionsUpcomingChargesReader(
+        list_upcoming=list_upcoming_charges_use_case,
     )
 
     session_issuer = SessionIssuer(
@@ -513,11 +532,14 @@ def build_container(settings: Settings | None = None) -> Container:
             settlement=charge_settlement,
             clock=clock,
         ),
+        list_upcoming_charges_use_case=list_upcoming_charges_use_case,
         balance_reader=balance_reader,
         movement_summary_reader=movement_summary_reader,
+        upcoming_charges_reader=upcoming_charges_reader,
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,
             movement_summary_reader=movement_summary_reader,
+            upcoming_charges_reader=upcoming_charges_reader,
         ),
     )
 

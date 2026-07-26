@@ -6,6 +6,7 @@ from src.modules.overview.application.ports.movement_summary_reader import (
     PeriodSummary,
     RecentMovementView,
 )
+from src.modules.overview.application.ports.upcoming_charges_reader import UpcomingChargeView
 
 CURRENCY = "COP"
 
@@ -77,3 +78,34 @@ def recent_movement(
 
 def new_user_id() -> UUID:
     return uuid4()
+
+
+class FakeUpcomingChargesReader:
+    """Records the window it was asked about, so a test can assert it."""
+
+    def __init__(self, charges: list[UpcomingChargeView] | None = None) -> None:
+        self.charges = charges or []
+        self.windows: list[tuple[str, str, int]] = []
+
+    async def upcoming(
+        self, user_id: UUID, date_from: str, date_to: str, limit: int
+    ) -> list[UpcomingChargeView]:
+        self.windows.append((date_from, date_to, limit))
+        return self.charges[:limit]
+
+
+def upcoming_charge(
+    *,
+    subscription_id: str = "netflix",
+    charge_on: str = "2026-07-28",
+    amount: int = 30_900,
+    status: str = "scheduled",
+    charge_id: str | None = None,
+) -> UpcomingChargeView:
+    return UpcomingChargeView(
+        subscription_id=subscription_id,
+        charge_on=charge_on,
+        amount=amount,
+        status=status,
+        charge_id=charge_id,
+    )

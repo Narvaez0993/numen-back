@@ -41,6 +41,16 @@ class RecentMovementResponse(BaseModel):
     subscription_id: str | None
 
 
+class UpcomingChargeResponse(BaseModel):
+    subscription_id: str
+    """The client resolves the name and icon from its subscriptions catalog."""
+    charge_on: str
+    amount: int
+    status: str
+    """`pending` (due, waiting for confirmation) or `scheduled` (a future date)."""
+    charge_id: str | None
+
+
 class HomeOverviewResponse(BaseModel):
     currency: str
     period: str
@@ -52,3 +62,4 @@ class HomeOverviewResponse(BaseModel):
     daily: DailyResponse
     top_categories: list[TopCategoryResponse]
     recent: list[RecentMovementResponse]
+    upcoming: list[UpcomingChargeResponse]

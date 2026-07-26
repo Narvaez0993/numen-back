@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from src.modules.overview.application.dto.home_overview import (
     DailyDTO,
@@ -8,17 +8,25 @@ from src.modules.overview.application.dto.home_overview import (
     MonthDTO,
     RecentMovementDTO,
     TopCategoryDTO,
+    UpcomingChargeDTO,
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
     PeriodSummary,
 )
+from src.modules.overview.application.ports.upcoming_charges_reader import (
+    UpcomingChargesReader,
+)
 from src.modules.overview.domain import daily_allowance
 from src.modules.overview.domain.period import MonthPeriod
 
 TOP_CATEGORIES = 4
 RECENT_MOVEMENTS = 5
+UPCOMING_CHARGES = 5
+# A week ahead, not "the rest of the month": on the 31st the second window would be
+# empty, and a charge landing on the 2nd is exactly what you want to know about.
+UPCOMING_WINDOW_DAYS = 7
 
 
 @dataclass
@@ -32,6 +40,7 @@ class GetHomeOverviewUseCase:
 
     balance_reader: BalanceReader
     movement_summary_reader: MovementSummaryReader
+    upcoming_charges_reader: UpcomingChargesReader
 
     async def execute(self, input_dto: HomeOverviewInputDTO) -> HomeOverviewOutputDTO:
         period = MonthPeriod.containing(date.fromisoformat(input_dto.today))
@@ -45,6 +54,14 @@ class GetHomeOverviewUseCase:
             input_dto.user_id, input_dto.today, input_dto.today
         )
         recent = await self.movement_summary_reader.recent(input_dto.user_id, RECENT_MOVEMENTS)
+        upcoming = await self.upcoming_charges_reader.upcoming(
+            input_dto.user_id,
+            input_dto.today,
+            (
+                date.fromisoformat(input_dto.today) + timedelta(days=UPCOMING_WINDOW_DAYS)
+            ).isoformat(),
+            UPCOMING_CHARGES,
+        )
 
         allowance = daily_allowance.compute(
             spent=month.expense_total,
@@ -72,6 +89,7 @@ class GetHomeOverviewUseCase:
             ),
             top_categories=_top_categories(month),
             recent=[RecentMovementDTO.from_view(view) for view in recent],
+            upcoming=[UpcomingChargeDTO.from_view(view) for view in upcoming],
         )
 
 

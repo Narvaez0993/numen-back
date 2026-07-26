@@ -10,9 +10,11 @@ from .fakes import (
     CURRENCY,
     FakeBalanceReader,
     FakeMovementSummaryReader,
+    FakeUpcomingChargesReader,
     new_user_id,
     recent_movement,
     spend,
+    upcoming_charge,
 )
 
 # 25 July 2026 → 7 days left in the month (25th through 31st).
@@ -24,10 +26,12 @@ def build(
     *,
     balance: FakeBalanceReader | None = None,
     summaries: FakeMovementSummaryReader | None = None,
+    charges: FakeUpcomingChargesReader | None = None,
 ) -> GetHomeOverviewUseCase:
     return GetHomeOverviewUseCase(
         balance_reader=balance or FakeBalanceReader(),
         movement_summary_reader=summaries or FakeMovementSummaryReader(),
+        upcoming_charges_reader=charges or FakeUpcomingChargesReader(),
     )
 
 
@@ -182,3 +186,32 @@ async def test_the_position_comes_from_the_accounts_module() -> None:
     assert output.net_balance == 4_395_000
     assert (output.accounts_count, output.credit_cards_count) == (3, 1)
     assert output.currency == CURRENCY
+
+
+@pytest.mark.asyncio
+async def test_upcoming_charges_look_a_week_ahead() -> None:
+    """Not "the rest of the month": on the 31st that window would be empty, and a
+    charge landing on the 2nd is exactly what the user needs to see."""
+    charges = FakeUpcomingChargesReader()
+
+    await overview(build(charges=charges))
+
+    assert charges.windows == [(TODAY, "2026-08-01", 5)]
+
+
+@pytest.mark.asyncio
+async def test_upcoming_charges_travel_as_references_with_their_state() -> None:
+    charges = FakeUpcomingChargesReader(
+        [
+            upcoming_charge(status="pending", charge_id="chg-1", charge_on=TODAY),
+            upcoming_charge(subscription_id="gym", charge_on="2026-07-29"),
+        ]
+    )
+
+    output = await overview(build(charges=charges))
+
+    assert [(c.subscription_id, c.status, c.charge_id) for c in output.upcoming] == [
+        ("netflix", "pending", "chg-1"),
+        ("gym", "scheduled", None),
+    ]
+    assert not hasattr(output.upcoming[0], "name")
