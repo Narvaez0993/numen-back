@@ -102,6 +102,7 @@ class CreateMovementUseCase:
             occurred_on=occurred_on,
             captured_via=ensure_captured_via(input_dto.captured_via),
             created_at=self.clock.now(),
+            subscription_id=input_dto.subscription_id,
         )
 
     @staticmethod

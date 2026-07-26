@@ -71,6 +71,7 @@ def recent_movement(
         category_id="cafe",
         occurred_on="2026-07-25",
         captured_via="manual",
+        subscription_id=None,
     )
 
 

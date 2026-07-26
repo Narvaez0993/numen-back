@@ -38,6 +38,7 @@ class RecentMovementResponse(BaseModel):
     category_id: str | None
     occurred_on: str
     captured_via: str
+    subscription_id: str | None
 
 
 class HomeOverviewResponse(BaseModel):

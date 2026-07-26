@@ -19,6 +19,9 @@ class CreateMovementInputDTO(BaseModel):
     occurred_on: str
     captured_via: str = "manual"
     idempotency_key: str | None = None
+    subscription_id: str | None = None
+    """Only the subscriptions module sets this, through its own port — the HTTP
+    schema does not expose it, so `movements` never has to know that module."""
 
 
 class UpdateMovementInputDTO(BaseModel):
