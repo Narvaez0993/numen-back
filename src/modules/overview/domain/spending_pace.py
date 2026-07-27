@@ -25,18 +25,24 @@ class SpendingPace:
     projected: int
 
 
-def compute(*, spent: int, days_elapsed: int, days_left: int) -> SpendingPace | None:
+def compute(*, spent: int, days_elapsed: int, total_days: int) -> SpendingPace | None:
     """`None` while the month is too young to project from.
 
-    Only the **remaining** days are projected: what was already spent is a fact and is
-    carried as-is, so the estimate can never contradict the ledger.
+    Takes the **month's length**, not the days left, on purpose: `days_elapsed` and
+    `days_left` both include today, so projecting over `days_left` estimated one extra
+    day — a 31-day month came out as 32 and the figure was ~4% high in the middle of
+    the month. Deriving the remainder here makes that mistake impossible at the caller.
+
+    Only the remaining days are estimated: what was already spent is a fact and is
+    carried as-is, so the projection can never contradict the ledger.
     """
     if days_elapsed < MIN_DAYS_FOR_PROJECTION or spent <= 0:
         return None
 
+    remaining = max(0, total_days - days_elapsed)
     return SpendingPace(
         daily_average=spent // days_elapsed,
-        projected=spent + spent * days_left // days_elapsed,
+        projected=spent + spent * remaining // days_elapsed,
     )
 
 

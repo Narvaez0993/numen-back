@@ -77,7 +77,7 @@ class GetHomeOverviewUseCase:
         pace = spending_pace.compute(
             spent=month.expense_total,
             days_elapsed=period.days_elapsed,
-            days_left=period.days_left,
+            total_days=period.total_days,
         )
         focus = hero_focus.choose(
             objective=input_dto.objective,

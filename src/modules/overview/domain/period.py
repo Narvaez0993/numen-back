@@ -16,8 +16,13 @@ class MonthPeriod:
     """`YYYY-MM` — how the UI names the month."""
     first_day: str
     last_day: str
+    total_days: int
+    """Days the month has. `days_elapsed + days_left` is **not** it: both include
+    today, so adding them counts today twice — which is exactly how a projection ended
+    up estimating 32 days of spending in a 31-day month."""
     days_left: int
-    """Including today, so it is never zero while the month is open."""
+    """Including today, so it is never zero while the month is open. This is the
+    figure a label wants ("6 days left"), not the one a projection wants."""
     days_elapsed: int
     """Including today — the denominator of the spending pace."""
 
@@ -28,6 +33,7 @@ class MonthPeriod:
             key=f"{today.year:04d}-{today.month:02d}",
             first_day=today.replace(day=1).isoformat(),
             last_day=today.replace(day=total_days).isoformat(),
+            total_days=total_days,
             days_left=total_days - today.day + 1,
             days_elapsed=today.day,
         )

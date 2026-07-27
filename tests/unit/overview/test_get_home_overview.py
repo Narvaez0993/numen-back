@@ -21,6 +21,7 @@ from .fakes import (
 TODAY = "2026-07-26"
 DAYS_LEFT = 6
 DAYS_ELAPSED = 26
+TOTAL_DAYS = 31
 
 
 def build(
@@ -70,7 +71,12 @@ async def test_registering_movements_turns_on_the_pace() -> None:
     assert output.focus == "pace"
     assert output.pace is not None
     assert output.pace.daily_average == 1_919_500 // DAYS_ELAPSED
-    assert output.pace.projected == 1_919_500 + 1_919_500 * DAYS_LEFT // DAYS_ELAPSED
+    # Projected over the 5 days left **after** today, not the 6 the label counts:
+    # `days_elapsed` and `days_left` both include today, so adding them would make
+    # July 32 days long.
+    assert (
+        output.pace.projected == 1_919_500 + 1_919_500 * (TOTAL_DAYS - DAYS_ELAPSED) // DAYS_ELAPSED
+    )
 
 
 @pytest.mark.asyncio
