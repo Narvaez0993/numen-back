@@ -28,4 +28,8 @@ class AccountsBalanceReader:
             net_balance=overview.net_balance,
             accounts_count=overview.accounts_count,
             credit_cards_count=overview.credit_cards_count,
+            card_debt=overview.tc_debt,
+            # Summed here rather than in accounts: the utilisation bar is a Home
+            # concern, and the cards are already in the payload this reads.
+            card_limit=sum(card.limit for card in overview.credit_cards),
         )

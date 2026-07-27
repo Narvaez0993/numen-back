@@ -5,11 +5,11 @@ from datetime import date
 
 @dataclass(frozen=True)
 class MonthPeriod:
-    """The month a day belongs to, plus how much of it is left.
+    """The month a day belongs to, plus how much of it is left and gone.
 
-    Derived from the day the **client** says it is, not from the server's UTC
-    date: a user in UTC+13 opening the app in the morning is already on a
-    different day than the server, and "how much can I spend today" would be off.
+    Derived from the day the **client** says it is, not from the server's UTC date: a
+    user in UTC+13 opening the app in the morning is already on a different day than
+    the server, and every figure about "this month so far" would be off.
     """
 
     key: str
@@ -18,6 +18,8 @@ class MonthPeriod:
     last_day: str
     days_left: int
     """Including today, so it is never zero while the month is open."""
+    days_elapsed: int
+    """Including today — the denominator of the spending pace."""
 
     @classmethod
     def containing(cls, today: date) -> "MonthPeriod":
@@ -27,4 +29,21 @@ class MonthPeriod:
             first_day=today.replace(day=1).isoformat(),
             last_day=today.replace(day=total_days).isoformat(),
             days_left=total_days - today.day + 1,
+            days_elapsed=today.day,
+        )
+
+    def same_span_last_month(self) -> tuple[str, str]:
+        """Last month, cut at the same day — the only fair comparison mid-month.
+
+        July 1-26 against June 1-26, never against the whole of June: a month in
+        progress compared to a finished one would always look better, and a trend that
+        flatters you is worse than no trend. Clamped when the previous month is shorter
+        (the 31st becomes the 28th).
+        """
+        first = date.fromisoformat(self.first_day)
+        year, month = (first.year, first.month - 1) if first.month > 1 else (first.year - 1, 12)
+        _, total_days = monthrange(year, month)
+        return (
+            date(year, month, 1).isoformat(),
+            date(year, month, min(self.days_elapsed, total_days)).isoformat(),
         )
