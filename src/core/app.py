@@ -25,6 +25,12 @@ from src.modules.auth.adapters.outbound.persistence.documents.refresh_token_docu
     RefreshTokenDocument,
 )
 from src.modules.auth.adapters.outbound.persistence.documents.user_document import UserDocument
+from src.modules.budgets.adapters.inbound.http.routers import (
+    router as budgets_router,
+)
+from src.modules.budgets.adapters.outbound.persistence.documents.budget_document import (
+    BudgetDocument,
+)
 from src.modules.categories.adapters.inbound.http.routers import (
     router as categories_router,
 )
@@ -72,6 +78,7 @@ _DOCUMENTS = [
     IdempotencyKeyDocument,
     SubscriptionDocument,
     SubscriptionChargeDocument,
+    BudgetDocument,
 ]
 
 
@@ -111,6 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(movements_router)
     app.include_router(subscriptions_router)
     app.include_router(subscription_charges_router)
+    app.include_router(budgets_router)
     app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])

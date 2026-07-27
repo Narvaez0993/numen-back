@@ -225,6 +225,48 @@ forbidden_modules =
     src.modules.movements
     src.modules.auth
 
+[importlinter:contract:budgets-hexagonal-layers]
+name = budgets module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.budgets.adapters
+    src.modules.budgets.application
+    src.modules.budgets.domain
+
+[importlinter:contract:budgets-inbound-forbids-outbound]
+name = budgets — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.budgets.adapters.inbound
+forbidden_modules =
+    src.modules.budgets.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:budgets-outbound-forbids-inbound]
+name = budgets — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.budgets.adapters.outbound
+forbidden_modules =
+    src.modules.budgets.adapters.inbound
+allow_indirect_imports = True
+
+# A cap is measured against spending it does not own. The hexagon says so through
+# `SpendReader` and `CategoryReader`, and only the outermost adapters know that the
+# answers come from `movements` and `categories`.
+[importlinter:contract:budgets-hexagon-independent-of-siblings]
+name = budgets — the hexagon cannot import sibling modules (only its adapters may)
+type = forbidden
+source_modules =
+    src.modules.budgets.domain
+    src.modules.budgets.application
+forbidden_modules =
+    src.modules.accounts
+    src.modules.categories
+    src.modules.movements
+    src.modules.subscriptions
+    src.modules.auth
+
 [importlinter:contract:overview-hexagonal-layers]
 name = overview module — hexagonal layers (adapters → application → domain)
 type = layers
@@ -265,6 +307,7 @@ forbidden_modules =
     src.modules.accounts
     src.modules.movements
     src.modules.categories
+    src.modules.budgets
     src.modules.auth
 
 # Nobody depends on `overview`: it is a leaf that composes read views. If this
@@ -277,6 +320,7 @@ source_modules =
     src.modules.categories
     src.modules.accounts
     src.modules.movements
+    src.modules.budgets
 forbidden_modules =
     src.modules.overview
 # Indirect only: every router reaches the composition root through the shared

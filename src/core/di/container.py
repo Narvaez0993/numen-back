@@ -71,6 +71,27 @@ from src.modules.auth.application.use_cases.update_preferences import (
     UpdatePreferencesUseCase,
 )
 from src.modules.auth.application.use_cases.verify_email import VerifyEmailUseCase
+from src.modules.budgets.adapters.outbound.catalog.categories_category_reader import (
+    CategoriesCategoryReader as BudgetsCategoryReaderAdapter,
+)
+from src.modules.budgets.adapters.outbound.persistence.repositories.mongo_budget_repository import (
+    MongoBudgetRepository,
+)
+from src.modules.budgets.adapters.outbound.spend.movements_spend_reader import (
+    MovementsSpendReader,
+)
+from src.modules.budgets.application.ports.budget_repository import BudgetRepository
+from src.modules.budgets.application.ports.category_reader import (
+    CategoryReader as BudgetCategoryReader,
+)
+from src.modules.budgets.application.ports.spend_reader import SpendReader
+from src.modules.budgets.application.use_cases.create_budget import CreateBudgetUseCase
+from src.modules.budgets.application.use_cases.delete_budget import DeleteBudgetUseCase
+from src.modules.budgets.application.use_cases.get_budgets_snapshot import (
+    GetBudgetsSnapshotUseCase,
+)
+from src.modules.budgets.application.use_cases.get_global_cap import GetGlobalCapUseCase
+from src.modules.budgets.application.use_cases.update_budget import UpdateBudgetUseCase
 from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
     MongoCategoryRepository,
 )
@@ -100,6 +121,9 @@ from src.modules.movements.application.services.movement_references import (
 )
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
+from src.modules.movements.application.use_cases.get_top_merchants import (
+    GetTopMerchantsUseCase,
+)
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.modules.movements.application.use_cases.summarize_movements import (
     SummarizeMovementsUseCase,
@@ -246,6 +270,17 @@ class Container:
     update_movement_use_case: UpdateMovementUseCase
     delete_movement_use_case: DeleteMovementUseCase
     summarize_movements_use_case: SummarizeMovementsUseCase
+    get_top_merchants_use_case: GetTopMerchantsUseCase
+
+    # Budgets
+    budget_repository: BudgetRepository
+    budget_spend_reader: SpendReader
+    budget_category_reader: BudgetCategoryReader
+    get_budgets_snapshot_use_case: GetBudgetsSnapshotUseCase
+    get_global_cap_use_case: GetGlobalCapUseCase
+    create_budget_use_case: CreateBudgetUseCase
+    update_budget_use_case: UpdateBudgetUseCase
+    delete_budget_use_case: DeleteBudgetUseCase
 
     # Subscriptions
     subscription_repository: SubscriptionRepository
@@ -318,12 +353,28 @@ def build_container(settings: Settings | None = None) -> Container:
     list_movements_use_case = ListMovementsUseCase(
         movement_repository=movement_repository,
     )
+    get_top_merchants_use_case = GetTopMerchantsUseCase(
+        movement_repository=movement_repository,
+    )
     balance_reader: BalanceReader = AccountsBalanceReader(
         accounts_overview=accounts_overview_use_case,
     )
     movement_summary_reader: MovementSummaryReader = MovementsSummaryReader(
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
+    )
+
+    budget_repository: BudgetRepository = MongoBudgetRepository()
+    budget_spend_reader: SpendReader = MovementsSpendReader(
+        summarize_movements=summarize_movements_use_case,
+        get_top_merchants=get_top_merchants_use_case,
+    )
+    budget_category_reader: BudgetCategoryReader = BudgetsCategoryReaderAdapter(
+        category_repository=category_repository,
+    )
+    get_global_cap_use_case = GetGlobalCapUseCase(
+        budget_repository=budget_repository,
+        spend_reader=budget_spend_reader,
     )
 
     subscription_repository: SubscriptionRepository = MongoSubscriptionRepository()
@@ -500,6 +551,22 @@ def build_container(settings: Settings | None = None) -> Container:
             unit_of_work=unit_of_work,
         ),
         summarize_movements_use_case=summarize_movements_use_case,
+        get_top_merchants_use_case=get_top_merchants_use_case,
+        budget_repository=budget_repository,
+        budget_spend_reader=budget_spend_reader,
+        budget_category_reader=budget_category_reader,
+        get_budgets_snapshot_use_case=GetBudgetsSnapshotUseCase(
+            budget_repository=budget_repository,
+            spend_reader=budget_spend_reader,
+        ),
+        get_global_cap_use_case=get_global_cap_use_case,
+        create_budget_use_case=CreateBudgetUseCase(
+            budget_repository=budget_repository,
+            category_reader=budget_category_reader,
+            category_free_limit=settings.budget_categories_free_limit,
+        ),
+        update_budget_use_case=UpdateBudgetUseCase(budget_repository=budget_repository),
+        delete_budget_use_case=DeleteBudgetUseCase(budget_repository=budget_repository),
         subscription_repository=subscription_repository,
         subscription_source_reader=subscription_source_reader,
         subscription_category_reader=subscription_category_reader,
