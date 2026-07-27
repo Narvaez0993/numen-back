@@ -132,6 +132,9 @@ from src.modules.movements.application.use_cases.update_movement import UpdateMo
 from src.modules.overview.adapters.outbound.balance.accounts_balance_reader import (
     AccountsBalanceReader,
 )
+from src.modules.overview.adapters.outbound.budgets.budgets_global_cap_reader import (
+    BudgetsGlobalCapReader,
+)
 from src.modules.overview.adapters.outbound.movements.movements_summary_reader import (
     MovementsSummaryReader,
 )
@@ -139,6 +142,7 @@ from src.modules.overview.adapters.outbound.subscriptions.subscriptions_upcoming
     SubscriptionsUpcomingChargesReader,
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
+from src.modules.overview.application.ports.budget_reader import BudgetReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
 )
@@ -305,6 +309,7 @@ class Container:
     balance_reader: BalanceReader
     movement_summary_reader: MovementSummaryReader
     upcoming_charges_reader: UpcomingChargesReader
+    budget_cap_reader: BudgetReader
     get_home_overview_use_case: GetHomeOverviewUseCase
 
 
@@ -418,6 +423,9 @@ def build_container(settings: Settings | None = None) -> Container:
     )
     upcoming_charges_reader: UpcomingChargesReader = SubscriptionsUpcomingChargesReader(
         list_upcoming=list_upcoming_charges_use_case,
+    )
+    budget_cap_reader: BudgetReader = BudgetsGlobalCapReader(
+        get_global_cap=get_global_cap_use_case,
     )
 
     session_issuer = SessionIssuer(
@@ -612,10 +620,12 @@ def build_container(settings: Settings | None = None) -> Container:
         balance_reader=balance_reader,
         movement_summary_reader=movement_summary_reader,
         upcoming_charges_reader=upcoming_charges_reader,
+        budget_cap_reader=budget_cap_reader,
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,
             movement_summary_reader=movement_summary_reader,
             upcoming_charges_reader=upcoming_charges_reader,
+            budget_reader=budget_cap_reader,
         ),
     )
 

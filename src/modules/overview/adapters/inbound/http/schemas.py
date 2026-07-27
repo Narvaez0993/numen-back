@@ -31,6 +31,27 @@ class PaceResponse(BaseModel):
     projected: int
 
 
+class BudgetResponse(BaseModel):
+    """The month against the ceiling the user set; `null` when they set none.
+
+    `per_day` is the only daily figure the payload carries, and it exists because this
+    one comes from a number the user chose: it divides what is left by the days that are
+    left (**today included**) and it goes down as they spend. The allowance it replaced
+    divided their income and went **up** every day they held back.
+    """
+
+    target: int
+    spent: int
+    remaining: int
+    """Negative once they are over the cap: reported, not clamped to zero."""
+    used: float
+    per_day: int | None
+    """`null` once the cap is spent — there is nothing left to divide."""
+    projected: int | None
+    over: int | None
+    """How much past the cap the month would close; `null` when it closes inside."""
+
+
 class TopCategoryResponse(BaseModel):
     category_id: str | None
     spent: int
@@ -74,13 +95,17 @@ class HomeOverviewResponse(BaseModel):
     days_elapsed: int
     objective: str | None
     focus: str
-    """`start` | `pace` | `debt` | `saving` | `invite` — which figure the hero leads
-    with, chosen from the objective and the data that exists. `invite` means the
+    """`start` | `pace` | `debt` | `saving` | `budget` | `invite` — which figure the hero
+    leads with, chosen from the objective and the data that exists. `invite` means the
     objective's data is missing and the client should ask for it."""
     card_debt: int
     card_limit: int
     month: MonthResponse
     pace: PaceResponse | None
+    budget: BudgetResponse | None
+    """Present whenever the user set a global cap, whatever `focus` says: with an
+    objective of debt or saving the hero leads with that and keeps the cap as a
+    secondary row."""
     top_categories: list[TopCategoryResponse]
     recent: list[RecentMovementResponse]
     upcoming: list[UpcomingChargeResponse]

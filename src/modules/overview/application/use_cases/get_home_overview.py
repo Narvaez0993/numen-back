@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 
 from src.modules.overview.application.dto.home_overview import (
+    BudgetDTO,
     HomeOverviewInputDTO,
     HomeOverviewOutputDTO,
     MonthDTO,
@@ -12,6 +13,7 @@ from src.modules.overview.application.dto.home_overview import (
     UpcomingChargeDTO,
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
+from src.modules.overview.application.ports.budget_reader import BudgetReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
     PeriodSummary,
@@ -43,11 +45,15 @@ class GetHomeOverviewUseCase:
     today", a permission this app has no business granting — and it rose whenever the
     user held back. Instead, `focus` picks the figure that serves what the user said
     they came for, and `pace` says where the month lands at their current rate.
+
+    A daily figure is back in `budget`, and only there: it comes from a ceiling the user
+    set, it is computed by the module that owns that ceiling, and it falls as they spend.
     """
 
     balance_reader: BalanceReader
     movement_summary_reader: MovementSummaryReader
     upcoming_charges_reader: UpcomingChargesReader
+    budget_reader: BudgetReader
 
     async def execute(self, input_dto: HomeOverviewInputDTO) -> HomeOverviewOutputDTO:
         period = MonthPeriod.containing(date.fromisoformat(input_dto.today))
@@ -65,6 +71,7 @@ class GetHomeOverviewUseCase:
             input_dto.user_id, previous_from, previous_to
         )
         recent = await self.movement_summary_reader.recent(input_dto.user_id, RECENT_MOVEMENTS)
+        cap = await self.budget_reader.global_cap(input_dto.user_id, input_dto.today)
         upcoming = await self.upcoming_charges_reader.upcoming(
             input_dto.user_id,
             input_dto.today,
@@ -84,6 +91,7 @@ class GetHomeOverviewUseCase:
             has_movements=month.count > 0 or len(recent) > 0,
             card_debt=balance.card_debt,
             income=month.income_total,
+            has_cap=cap is not None,
         )
 
         return HomeOverviewOutputDTO(
@@ -113,6 +121,7 @@ class GetHomeOverviewUseCase:
                 if pace is None
                 else PaceDTO(daily_average=pace.daily_average, projected=pace.projected)
             ),
+            budget=None if cap is None else BudgetDTO.from_view(cap),
             top_categories=_top_categories(month),
             recent=[RecentMovementDTO.from_view(view) for view in recent],
             upcoming=[UpcomingChargeDTO.from_view(view) for view in upcoming],

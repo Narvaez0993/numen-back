@@ -1,6 +1,7 @@
 from uuid import UUID, uuid4
 
 from src.modules.overview.application.ports.balance_reader import BalanceSnapshot
+from src.modules.overview.application.ports.budget_reader import GlobalCapView
 from src.modules.overview.application.ports.movement_summary_reader import (
     CategorySpendView,
     PeriodSummary,
@@ -82,6 +83,37 @@ class FakeUpcomingChargesReader:
     ) -> list[UpcomingChargeView]:
         self.windows.append((date_from, date_to, limit))
         return self.charges[:limit]
+
+
+class FakeBudgetReader:
+    """No cap by default — most of Home's tests are about a user who never set one."""
+
+    def __init__(self, cap: GlobalCapView | None = None) -> None:
+        self.cap = cap
+        self.days: list[str] = []
+
+    async def global_cap(self, user_id: UUID, today: str) -> GlobalCapView | None:
+        self.days.append(today)
+        return self.cap
+
+
+def global_cap(
+    *,
+    target: int = 3_000_000,
+    spent: int = 1_919_500,
+    per_day: int | None = 180_083,
+    projected: int | None = 2_287_800,
+    over: int | None = None,
+) -> GlobalCapView:
+    return GlobalCapView(
+        target=target,
+        spent=spent,
+        remaining=target - spent,
+        used=spent / target,
+        per_day=per_day,
+        projected=projected,
+        over=over,
+    )
 
 
 def spend(category_id: str | None, amount: int, count: int = 1) -> CategorySpendView:

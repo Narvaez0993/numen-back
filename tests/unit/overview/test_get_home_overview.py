@@ -9,8 +9,10 @@ from src.modules.overview.application.use_cases.get_home_overview import (
 from .fakes import (
     CURRENCY,
     FakeBalanceReader,
+    FakeBudgetReader,
     FakeMovementSummaryReader,
     FakeUpcomingChargesReader,
+    global_cap,
     new_user_id,
     recent_movement,
     spend,
@@ -29,11 +31,13 @@ def build(
     balance: FakeBalanceReader | None = None,
     summaries: FakeMovementSummaryReader | None = None,
     charges: FakeUpcomingChargesReader | None = None,
+    budgets: FakeBudgetReader | None = None,
 ) -> GetHomeOverviewUseCase:
     return GetHomeOverviewUseCase(
         balance_reader=balance or FakeBalanceReader(),
         movement_summary_reader=summaries or FakeMovementSummaryReader(),
         upcoming_charges_reader=charges or FakeUpcomingChargesReader(),
+        budget_reader=budgets or FakeBudgetReader(),
     )
 
 
@@ -158,6 +162,63 @@ async def test_an_objective_without_its_data_asks_for_it() -> None:
     assert output.objective == "deudas"
     # The pace still travels, so the client can show it under the invitation.
     assert output.pace is not None
+
+
+@pytest.mark.asyncio
+async def test_a_cap_leads_the_hero_and_brings_the_only_daily_figure() -> None:
+    summaries = FakeMovementSummaryReader(month=PeriodSummary(expense_total=1_919_500, count=12))
+
+    output = await overview(build(summaries=summaries, budgets=FakeBudgetReader(global_cap())))
+
+    assert output.focus == "budget"
+    assert output.budget is not None
+    assert output.budget.target == 3_000_000
+    assert output.budget.per_day == 180_083
+    # The pace is still there: the cap face shows the projection next to the ceiling.
+    assert output.pace is not None
+
+
+@pytest.mark.asyncio
+async def test_the_cap_travels_even_when_the_objective_leads() -> None:
+    """A declared objective wins the hero, but the client keeps the cap as a secondary
+    row — so it must be in the payload regardless of `focus`."""
+    summaries = FakeMovementSummaryReader(month=PeriodSummary(expense_total=1_919_500, count=12))
+
+    output = await overview(
+        build(
+            summaries=summaries,
+            balance=FakeBalanceReader(card_debt=830_900, card_limit=5_000_000),
+            budgets=FakeBudgetReader(global_cap()),
+        ),
+        objective="deudas",
+    )
+
+    assert output.focus == "debt"
+    assert output.budget is not None
+
+
+@pytest.mark.asyncio
+async def test_without_a_cap_there_is_no_daily_figure_at_all() -> None:
+    """The rule the allowance broke: a daily number only exists when it comes from a
+    ceiling the user chose."""
+    summaries = FakeMovementSummaryReader(month=PeriodSummary(expense_total=1_919_500, count=12))
+
+    output = await overview(build(summaries=summaries))
+
+    assert output.focus == "pace"
+    assert output.budget is None
+    assert "per_day" not in output.model_dump(exclude={"budget"})
+
+
+@pytest.mark.asyncio
+async def test_the_cap_is_asked_for_the_clients_day() -> None:
+    """The ceiling divides by the days left, so reading it with the server's day would
+    hand the wrong number to anyone far from UTC."""
+    budgets = FakeBudgetReader(global_cap())
+
+    await overview(build(budgets=budgets), today="2026-02-10")
+
+    assert budgets.days == ["2026-02-10"]
 
 
 @pytest.mark.asyncio

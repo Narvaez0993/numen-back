@@ -2,6 +2,7 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from src.modules.overview.application.ports.budget_reader import GlobalCapView
 from src.modules.overview.application.ports.movement_summary_reader import (
     RecentMovementView,
 )
@@ -44,6 +45,29 @@ class PaceDTO(BaseModel):
 
     daily_average: int
     projected: int
+
+
+class BudgetDTO(BaseModel):
+    """The month against the ceiling the user set. `null` when they set none — and the
+    daily figure only exists here, because it is only legitimate when it comes from a
+    cap they chose.
+    """
+
+    target: int
+    spent: int
+    remaining: int
+    """Negative once they are over the cap: reported, not clamped to zero."""
+    used: float
+    per_day: int | None
+    """What is left over the days that are left, **today included**. `null` once the cap
+    is spent."""
+    projected: int | None
+    over: int | None
+    """How much past the cap the month would close; `null` when it closes inside."""
+
+    @classmethod
+    def from_view(cls, view: GlobalCapView) -> "BudgetDTO":
+        return cls(**vars(view))
 
 
 class TopCategoryDTO(BaseModel):
@@ -103,7 +127,7 @@ class HomeOverviewOutputDTO(BaseModel):
     days_elapsed: int
     objective: str | None
     focus: str
-    """`start` | `pace` | `debt` | `saving` | `invite`."""
+    """`start` | `pace` | `debt` | `saving` | `budget` | `invite`."""
     net_balance: int
     accounts_count: int
     credit_cards_count: int
@@ -111,6 +135,7 @@ class HomeOverviewOutputDTO(BaseModel):
     card_limit: int
     month: MonthDTO
     pace: PaceDTO | None
+    budget: BudgetDTO | None
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
     upcoming: list[UpcomingChargeDTO]

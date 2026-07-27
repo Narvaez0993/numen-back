@@ -14,7 +14,7 @@ intention they already stated into the next action.
 
 from typing import Literal
 
-Focus = Literal["start", "pace", "debt", "saving", "invite"]
+Focus = Literal["start", "pace", "debt", "saving", "budget", "invite"]
 
 OBJECTIVE_DEBT = "deudas"
 OBJECTIVE_SAVING = "ahorrar"
@@ -26,11 +26,18 @@ def choose(
     has_movements: bool,
     card_debt: int,
     income: int,
+    has_cap: bool,
 ) -> Focus:
     """The rung Home shows. `invite` means "the objective's data is missing".
 
     Without movements nothing can be said about a month, so the checklist comes first
     regardless of the objective: there is no pace, no saving and no trend to read yet.
+
+    The cap sits **below** the objective on purpose. Someone who said "salir de deudas"
+    opens the app to see their debt, not their grocery ceiling — the cap still travels in
+    the payload and the client keeps it as a secondary row, so nothing is lost. What the
+    cap does replace is the bare pace: both describe the month, but only one of them is
+    measured against a number the user chose.
     """
     if not has_movements:
         return "start"
@@ -42,6 +49,9 @@ def choose(
         # Saving is `income - spent`; without income registered that subtraction is
         # just the spending with a minus sign in front of it.
         return "saving" if income > 0 else "invite"
+
+    if has_cap:
+        return "budget"
 
     # "gastos", or no objective at all: the pace is always available once there are
     # movements, which makes it the honest default.
