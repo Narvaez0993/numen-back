@@ -110,6 +110,8 @@ async def register(
             email=body.email,
             password=body.password,
             display_name=body.display_name,
+            language=body.language,
+            currency=body.currency,
         )
     )
     return PendingVerificationResponse(**output.model_dump())
@@ -194,6 +196,7 @@ async def update_my_preferences(
             language=body.language,
             currency=body.currency,
             theme=body.theme,
+            objective=body.objective,
         )
     )
     return CurrentUserResponse(**output.model_dump())

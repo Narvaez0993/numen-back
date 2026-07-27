@@ -24,6 +24,8 @@ class MovementDocument(Document):
     # ISO strings compare correctly for range queries).
     occurred_on: str
     captured_via: str
+    # Set only for a movement produced by a subscription charge (see subscriptions).
+    subscription_id: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:

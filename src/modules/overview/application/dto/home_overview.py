@@ -2,9 +2,11 @@ from uuid import UUID
 
 from pydantic import BaseModel
 
+from src.modules.overview.application.ports.budget_reader import GlobalCapView
 from src.modules.overview.application.ports.movement_summary_reader import (
     RecentMovementView,
 )
+from src.modules.overview.application.ports.upcoming_charges_reader import UpcomingChargeView
 
 
 class HomeOverviewInputDTO(BaseModel):
@@ -12,20 +14,60 @@ class HomeOverviewInputDTO(BaseModel):
     currency: str
     today: str
     """The client's local day (`YYYY-MM-DD`)."""
+    objective: str | None = None
+    """What the user came for — decides which figure the hero leads with."""
 
 
-class DailyDTO(BaseModel):
-    available: int
-    spent_today: int
-    basis: str
-    """`budget` | `income` | `none` — where `available` comes from."""
+class PreviousMonthDTO(BaseModel):
+    """The same stretch of last month, for a fair comparison mid-month."""
+
+    spent: int
+    income: int
 
 
 class MonthDTO(BaseModel):
     spent: int
     income: int
+    saved: int
+    """`income - spent`. Negative when the month cost more than it brought in."""
     savings_rate: float
     movements: int
+    spent_today: int
+    previous: PreviousMonthDTO | None
+    change: float | None
+    """Signed share of change in spending against `previous`. `None` on a first month —
+    a zero there would read as "you spent the same"."""
+
+
+class PaceDTO(BaseModel):
+    """How fast the month is going. `null` in its first days, when a projection would
+    be noise rather than information."""
+
+    daily_average: int
+    projected: int
+
+
+class BudgetDTO(BaseModel):
+    """The month against the ceiling the user set. `null` when they set none — and the
+    daily figure only exists here, because it is only legitimate when it comes from a
+    cap they chose.
+    """
+
+    target: int
+    spent: int
+    remaining: int
+    """Negative once they are over the cap: reported, not clamped to zero."""
+    used: float
+    per_day: int | None
+    """What is left over the days that are left, **today included**. `null` once the cap
+    is spent."""
+    projected: int | None
+    over: int | None
+    """How much past the cap the month would close; `null` when it closes inside."""
+
+    @classmethod
+    def from_view(cls, view: GlobalCapView) -> "BudgetDTO":
+        return cls(**vars(view))
 
 
 class TopCategoryDTO(BaseModel):
@@ -49,22 +91,51 @@ class RecentMovementDTO(BaseModel):
     category_id: str | None
     occurred_on: str
     captured_via: str
+    subscription_id: str | None
 
     @classmethod
     def from_view(cls, view: RecentMovementView) -> "RecentMovementDTO":
         return cls(**vars(view))
 
 
+class UpcomingChargeDTO(BaseModel):
+    """A recurring charge about to land. `pending` means it is due and waiting for the
+    user to confirm; `charge_id` is what confirm/skip act on."""
+
+    subscription_id: str
+    charge_on: str
+    amount: int
+    status: str
+    charge_id: str | None
+
+    @classmethod
+    def from_view(cls, view: UpcomingChargeView) -> "UpcomingChargeDTO":
+        return cls(**vars(view))
+
+
 class HomeOverviewOutputDTO(BaseModel):
-    """The whole Home screen in one read. Amounts in the minor unit of `currency`."""
+    """The whole Home screen in one read. Amounts in the minor unit of `currency`.
+
+    `focus` is the figure the hero leads with, chosen from the user's objective and the
+    data they actually have. Every block is either present with real data or `null`;
+    the client never has to guess which one to trust.
+    """
 
     currency: str
     period: str
     days_left: int
+    days_elapsed: int
+    objective: str | None
+    focus: str
+    """`start` | `pace` | `debt` | `saving` | `budget` | `invite`."""
     net_balance: int
     accounts_count: int
     credit_cards_count: int
+    card_debt: int
+    card_limit: int
     month: MonthDTO
-    daily: DailyDTO
+    pace: PaceDTO | None
+    budget: BudgetDTO | None
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
+    upcoming: list[UpcomingChargeDTO]

@@ -16,6 +16,7 @@ class UserPreferencesDocument(BaseModel):
     language: str = "es"
     currency: str = DEFAULT_CURRENCY
     theme: str = "system"
+    objective: str | None = None
 
 
 class UserDocument(Document):

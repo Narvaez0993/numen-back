@@ -18,6 +18,7 @@ class UserProfileDTO(BaseModel):
     language: str
     currency: str
     theme: str
+    objective: str | None
 
     @classmethod
     def from_domain(cls, user: User) -> "UserProfileDTO":
@@ -30,4 +31,5 @@ class UserProfileDTO(BaseModel):
             language=user.preferences.language,
             currency=user.preferences.currency,
             theme=user.preferences.theme,
+            objective=user.preferences.objective,
         )

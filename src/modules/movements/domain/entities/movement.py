@@ -5,11 +5,11 @@ from uuid import UUID, uuid4
 
 MovementType = Literal["expense", "income", "transfer"]
 SourceType = Literal["account", "credit_card"]
-CapturedVia = Literal["manual", "voice", "photo", "text"]
+CapturedVia = Literal["manual", "voice", "photo", "text", "recurring"]
 
 ALLOWED_TYPES: frozenset[str] = frozenset({"expense", "income", "transfer"})
 ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
-ALLOWED_CAPTURED_VIA: frozenset[str] = frozenset({"manual", "voice", "photo", "text"})
+ALLOWED_CAPTURED_VIA: frozenset[str] = frozenset({"manual", "voice", "photo", "text", "recurring"})
 MAX_DESCRIPTION_LENGTH = 80
 # Sanity bound for money in minor units, same as accounts.
 MAX_AMOUNT = 10**15
@@ -52,6 +52,14 @@ class Movement:
     occurred_on: str
     captured_via: CapturedVia
     created_at: datetime
+    subscription_id: str | None = None
+    """Set only when a subscription's charge produced this movement.
+
+    It is the whole "recurring" mechanism: the badge is **derived** from the link
+    instead of a `tag` field that could disagree with it, and it is what stops a
+    charge from being registered twice. Never accepted from a request body — only
+    the subscriptions module sets it, through its own port.
+    """
 
     @classmethod
     def create(
@@ -68,6 +76,7 @@ class Movement:
         occurred_on: str,
         captured_via: CapturedVia,
         created_at: datetime,
+        subscription_id: str | None = None,
     ) -> "Movement":
         return cls(
             id=str(uuid4()),
@@ -82,6 +91,7 @@ class Movement:
             occurred_on=occurred_on,
             captured_via=captured_via,
             created_at=created_at,
+            subscription_id=subscription_id,
         )
 
     def deltas(self) -> tuple[tuple[SourceRef, int], ...]:

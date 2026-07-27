@@ -51,6 +51,8 @@ class Settings(BaseSettings):
     categories_free_limit: int = 2
     accounts_free_limit: int = 2
     credit_cards_free_limit: int = 1
+    # Watched categories. The global cap is not here: every user has exactly one.
+    budget_categories_free_limit: int = 2
 
     # AI providers
     anthropic_api_key: str = ""

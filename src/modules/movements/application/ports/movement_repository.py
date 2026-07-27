@@ -41,6 +41,20 @@ class CategorySpend:
     count: int
 
 
+@dataclass(frozen=True)
+class MerchantSpend:
+    """Expenses of a date range grouped by **what the user typed**.
+
+    There is no merchant catalog: the description is free text, so "Exito", "exito "
+    and "EXITO" are one merchant here (grouped case- and space-insensitively) and
+    `label` carries the most recent spelling — the one the user last chose.
+    """
+
+    label: str
+    spent: int
+    count: int
+
+
 class MovementRepository(Protocol):
     """Outbound port: persistence and aggregate reads of `Movement` (per user)."""
 
@@ -61,4 +75,19 @@ class MovementRepository(Protocol):
         self, user_id: UUID, date_from: str, date_to: str
     ) -> list[CategorySpend]:
         """Expenses grouped by category, biggest first."""
+        ...
+
+    async def top_merchants(
+        self,
+        user_id: UUID,
+        date_from: str,
+        date_to: str,
+        category_id: str | None,
+        limit: int,
+    ) -> list[MerchantSpend]:
+        """Where the money of a category actually went, biggest first.
+
+        `category_id=None` means the unclassified bucket, not "any category": it is a
+        filter on the same field the listing uses.
+        """
         ...

@@ -74,3 +74,21 @@ class RefreshTokenReusedError(UnauthorizedError):
 
     def __init__(self) -> None:
         super().__init__("Refresh token was already used; session revoked")
+
+
+class CurrencyChangeBlockedError(ConflictError):
+    """The home currency cannot change once money has been registered.
+
+    Amounts are stored in the currency's minor unit, and the exponent differs (COP 0,
+    USD 2), so re-labelling a history would move every decimal point — a silent 100x
+    error on data the user trusts. Blocking is the honest answer; the way out is to
+    start over, not to have the app guess.
+    """
+
+    code: ClassVar[str] = "auth.currency_change_blocked"
+
+    def __init__(self, current: str) -> None:
+        super().__init__(
+            f"Your data is registered in {current}. "
+            "Changing the home currency would re-label amounts you already saved."
+        )

@@ -17,6 +17,9 @@ class MovementResponse(BaseModel):
     category_id: str | None
     occurred_on: str
     captured_via: str
+    subscription_id: str | None = None
+    """Present when a subscription's charge produced it — that is what makes the
+    client show the "recurring" badge. Read-only: it is not part of any request."""
 
 
 class MovementsListResponse(BaseModel):

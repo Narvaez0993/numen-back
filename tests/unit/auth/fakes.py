@@ -1,4 +1,6 @@
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
+from typing import TypeVar
 from uuid import UUID, uuid4
 
 from src.modules.auth.application.services.session_issuer import SessionIssuer
@@ -137,3 +139,27 @@ def make_session_issuer(
         clock=clock,
         refresh_ttl_days=refresh_ttl_days,
     )
+
+
+T = TypeVar("T")
+
+
+class FakeCurrencyScope:
+    """Stands in for what the home currency is stamped on."""
+
+    def __init__(self, *, history: bool = False) -> None:
+        self.history = history
+        self.restamped: list[str] = []
+
+    async def has_history(self, user_id: UUID) -> bool:
+        return self.history
+
+    async def restamp(self, user_id: UUID, currency: str) -> None:
+        self.restamped.append(currency)
+
+
+class ImmediateUnitOfWork:
+    """Runs the operation without a transaction — enough to assert the writes."""
+
+    async def atomic(self, operation: Callable[[], Awaitable[T]]) -> T:
+        return await operation()

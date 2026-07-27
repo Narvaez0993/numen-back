@@ -7,6 +7,10 @@ class RegisterRequest(BaseModel):
     # Optional: the name is collected after email verification and set via
     # PATCH /auth/me.
     display_name: str = Field(default="", max_length=80)
+    language: str | None = Field(default=None, max_length=8)
+    currency: str | None = Field(default=None, max_length=8)
+    """The device's language and currency. Both fall back when unsupported: the app
+    is global-first and the client knows its region better than the server does."""
 
 
 class LoginRequest(BaseModel):
@@ -60,6 +64,8 @@ class CurrentUserResponse(BaseModel):
     language: str
     currency: str
     theme: str
+    objective: str | None
+    """`gastos` | `ahorrar` | `deudas` — what the user came for. `null` if skipped."""
 
 
 class UpdateMeRequest(BaseModel):
@@ -72,3 +78,4 @@ class UpdatePreferencesRequest(BaseModel):
     language: str | None = Field(default=None, max_length=8)
     currency: str | None = Field(default=None, max_length=3)
     theme: str | None = Field(default=None, max_length=8)
+    objective: str | None = Field(default=None, max_length=16)

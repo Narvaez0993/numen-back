@@ -49,6 +49,8 @@ class CallerContext:
     user_id: UUID
     tier: str
     currency: str
+    objective: str | None
+    """What the user is here for; Home leads with the figure that serves it."""
 
 
 async def get_caller(
@@ -69,4 +71,5 @@ async def get_caller(
         user_id=user.id,
         tier=user.tier,
         currency=user.preferences.currency,
+        objective=user.preferences.objective,
     )
