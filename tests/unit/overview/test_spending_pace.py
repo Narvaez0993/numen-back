@@ -23,7 +23,8 @@ def test_holding_back_can_never_raise_the_projection() -> None:
     day_10 = compute(spent=1_000_000, days_elapsed=10, days_left=21)
     day_11 = compute(spent=1_000_000, days_elapsed=11, days_left=20)
 
-    assert day_10 is not None and day_11 is not None
+    assert day_10 is not None
+    assert day_11 is not None
     assert day_11.projected < day_10.projected
     assert day_11.daily_average < day_10.daily_average
 
