@@ -1,3 +1,12 @@
+"""The month a day belongs to — calendar arithmetic shared by every module that
+reports "this month so far".
+
+It lives in `shared/domain` because two modules must land on the **same** month:
+`overview` builds Home from it and `budgets` measures a cap against it. Two copies of
+this file would eventually disagree about how many days July has, and the user would
+see one screen contradict the other.
+"""
+
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date
@@ -22,7 +31,8 @@ class MonthPeriod:
     up estimating 32 days of spending in a 31-day month."""
     days_left: int
     """Including today, so it is never zero while the month is open. This is the
-    figure a label wants ("6 days left"), not the one a projection wants."""
+    figure a label wants ("6 days left") and the divisor of a daily **ceiling** (what
+    is left has to cover today too). It is *not* what a projection wants."""
     days_elapsed: int
     """Including today — the denominator of the spending pace."""
 

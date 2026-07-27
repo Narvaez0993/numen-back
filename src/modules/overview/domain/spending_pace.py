@@ -1,20 +1,13 @@
 """How fast the month is going — the figure that replaced the daily allowance.
 
-The hero used to divide `(income - spent)` by the days left and call it "available
-today". That number had the incentive backwards: spending nothing today made
-**tomorrow's figure bigger**, because the same money was split across fewer days. On
-the 31st it granted the whole remaining income for a single day.
-
-The pace never does that. It looks at what has already happened — how much per day
-you are actually spending — and projects the rest of the month from it. Underspending
-today can only lower tomorrow's projection.
+The projection itself lives in `shared/domain/month_projection.py`, because `budgets`
+has to land on the same number when it compares the close against a cap. What stays
+here is what only Home says: the daily average and the trend against last month.
 """
 
 from dataclasses import dataclass
 
-# Under this, a projection is noise: one restaurant bill on the 2nd would forecast a
-# month of eating out. Better to say nothing than to alarm someone over a Tuesday.
-MIN_DAYS_FOR_PROJECTION = 3
+from src.shared.domain.month_projection import project
 
 
 @dataclass(frozen=True)
@@ -26,24 +19,12 @@ class SpendingPace:
 
 
 def compute(*, spent: int, days_elapsed: int, total_days: int) -> SpendingPace | None:
-    """`None` while the month is too young to project from.
-
-    Takes the **month's length**, not the days left, on purpose: `days_elapsed` and
-    `days_left` both include today, so projecting over `days_left` estimated one extra
-    day — a 31-day month came out as 32 and the figure was ~4% high in the middle of
-    the month. Deriving the remainder here makes that mistake impossible at the caller.
-
-    Only the remaining days are estimated: what was already spent is a fact and is
-    carried as-is, so the projection can never contradict the ledger.
-    """
-    if days_elapsed < MIN_DAYS_FOR_PROJECTION or spent <= 0:
+    """`None` while the month is too young to project from — see `project`."""
+    projected = project(spent=spent, days_elapsed=days_elapsed, total_days=total_days)
+    if projected is None:
         return None
 
-    remaining = max(0, total_days - days_elapsed)
-    return SpendingPace(
-        daily_average=spent // days_elapsed,
-        projected=spent + spent * remaining // days_elapsed,
-    )
+    return SpendingPace(daily_average=spent // days_elapsed, projected=projected)
 
 
 def change(current: int, previous: int) -> float | None:

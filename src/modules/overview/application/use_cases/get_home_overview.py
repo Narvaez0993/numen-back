@@ -20,7 +20,7 @@ from src.modules.overview.application.ports.upcoming_charges_reader import (
     UpcomingChargesReader,
 )
 from src.modules.overview.domain import hero_focus, spending_pace
-from src.modules.overview.domain.period import MonthPeriod
+from src.shared.domain.period import MonthPeriod
 
 TOP_CATEGORIES = 4
 RECENT_MOVEMENTS = 5

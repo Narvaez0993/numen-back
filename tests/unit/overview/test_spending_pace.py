@@ -11,11 +11,8 @@
 
 import pytest
 
-from src.modules.overview.domain.spending_pace import (
-    MIN_DAYS_FOR_PROJECTION,
-    change,
-    compute,
-)
+from src.modules.overview.domain.spending_pace import change, compute
+from src.shared.domain.month_projection import MIN_DAYS_FOR_PROJECTION
 
 DAYS_IN_JULY = 31
 
