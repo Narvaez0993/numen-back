@@ -28,6 +28,8 @@ class User:
         display_name: str,
         hashed_password: HashedPassword,
         created_at: datetime,
+        language: str = "es",
+        currency: str | None = None,
     ) -> "User":
         return cls(
             id=uuid4(),
@@ -37,7 +39,7 @@ class User:
             tier="free",
             email_verified=False,
             created_at=created_at,
-            preferences=UserPreferences.default(),
+            preferences=UserPreferences.default(language=language, currency=currency),
         )
 
     def with_password(self, hashed_password: HashedPassword) -> "User":

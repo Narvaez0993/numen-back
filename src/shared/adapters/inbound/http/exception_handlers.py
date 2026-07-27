@@ -9,7 +9,15 @@ from src.shared.domain.errors import DomainError
 _logger = get_logger(__name__)
 
 
-def _validation_response(details: object) -> JSONResponse:
+def _validation_response(request: Request, details: object) -> JSONResponse:
+    # Logged on purpose: a 422 that only exists in the client's console is a bug you
+    # debug twice — once to find out which field, once to fix it.
+    _logger.info(
+        "request_validation_failed",
+        method=request.method,
+        path=request.url.path,
+        details=details,
+    )
     return JSONResponse(
         status_code=422,
         content={
@@ -20,7 +28,14 @@ def _validation_response(details: object) -> JSONResponse:
     )
 
 
-async def _domain_error_handler(_request: Request, exc: DomainError) -> JSONResponse:
+async def _domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    _logger.info(
+        "domain_error",
+        method=request.method,
+        path=request.url.path,
+        code=exc.code,
+        message=exc.message,
+    )
     return JSONResponse(
         status_code=exc.http_status,
         content={
@@ -31,18 +46,18 @@ async def _domain_error_handler(_request: Request, exc: DomainError) -> JSONResp
 
 
 async def _pydantic_validation_handler(
-    _request: Request, exc: PydanticValidationError
+    request: Request, exc: PydanticValidationError
 ) -> JSONResponse:
-    return _validation_response(exc.errors(include_url=False))
+    return _validation_response(request, exc.errors(include_url=False))
 
 
 async def _request_validation_handler(
-    _request: Request, exc: RequestValidationError
+    request: Request, exc: RequestValidationError
 ) -> JSONResponse:
     """FastAPI raises its own error for a malformed body, which does not inherit
     from pydantic's — without this handler those 422s would answer `{detail: ...}`
     and break the `{code, message}` contract every client maps against."""
-    return _validation_response(exc.errors())
+    return _validation_response(request, exc.errors())
 
 
 async def _unhandled_handler(_request: Request, exc: Exception) -> JSONResponse:

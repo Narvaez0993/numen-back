@@ -34,6 +34,7 @@ class MovementMapper:
             occurred_on=doc.occurred_on,
             captured_via=cast(CapturedVia, doc.captured_via),
             created_at=doc.created_at,
+            subscription_id=doc.subscription_id,
         )
 
     @staticmethod
@@ -55,4 +56,5 @@ class MovementMapper:
             occurred_on=movement.occurred_on,
             captured_via=movement.captured_via,
             created_at=movement.created_at,
+            subscription_id=movement.subscription_id,
         )

@@ -61,6 +61,7 @@ class MovementsSummaryReader:
                 category_id=movement.category_id,
                 occurred_on=movement.occurred_on,
                 captured_via=movement.captured_via,
+                subscription_id=movement.subscription_id,
             )
             for movement in output.movements
         ]

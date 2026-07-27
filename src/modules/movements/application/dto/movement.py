@@ -18,6 +18,7 @@ class MovementDTO(BaseModel):
     category_id: str | None
     occurred_on: str
     captured_via: str
+    subscription_id: str | None = None
 
     @classmethod
     def from_domain(cls, movement: Movement) -> "MovementDTO":
@@ -36,4 +37,5 @@ class MovementDTO(BaseModel):
             category_id=movement.category_id,
             occurred_on=movement.occurred_on,
             captured_via=movement.captured_via,
+            subscription_id=movement.subscription_id,
         )

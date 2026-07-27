@@ -45,6 +45,8 @@ class RegisterUseCase:
             display_name=input_dto.display_name.strip(),
             hashed_password=hashed,
             created_at=now,
+            language=input_dto.language or "es",
+            currency=input_dto.currency,
         )
         await self.auth_repository.save(user)
 
