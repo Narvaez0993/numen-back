@@ -3,10 +3,17 @@
 This is where the daily figure comes back, and the difference from the one that was
 deleted is the whole point:
 
-- **the allowance** was `(income - spent) / days_left` — the app deciding what the user
-  could afford, and it *rose* every day they held back;
-- **the ceiling** is `(target - spent) / days_left` — the user's own number spread over
-  the days it still has to cover, and it can only fall when they spend.
+- **the allowance** was `(income - spent) / days_left` — the app turning the salary it
+  found into a permission to spend;
+- **the ceiling** is `(target - spent) / days_left` — the user's own limit spread over the
+  days it still has to cover.
+
+Both figures grow as the month runs out with money unspent, and that is worth being
+straight about: on the 31st this one offers the whole remainder for a single day too. The
+difference is not the shape of the division, it is **whose number is on top**. Spending up
+to a limit the user set is by definition fine, so redistributing what is left of it is
+information; doing the same with their income was the app inventing the limit. What the
+ceiling can never do is exceed the cap, and it falls the moment they spend.
 
 ⚠️ Note that the ceiling divides by `days_left` **including today**, which is exactly the
 input that broke the projection in `shared/domain/month_projection.py`. It is right here
