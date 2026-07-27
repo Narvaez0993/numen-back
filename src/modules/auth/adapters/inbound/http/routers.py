@@ -196,6 +196,7 @@ async def update_my_preferences(
             language=body.language,
             currency=body.currency,
             theme=body.theme,
+            objective=body.objective,
         )
     )
     return CurrentUserResponse(**output.model_dump())

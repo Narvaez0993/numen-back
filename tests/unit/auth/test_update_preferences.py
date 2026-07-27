@@ -136,3 +136,56 @@ async def test_setting_the_same_currency_again_restamps_nothing() -> None:
 
     assert output.currency == "USD"
     assert scope.restamped == []
+
+
+@pytest.mark.asyncio
+async def test_the_objective_is_stored_and_travels_in_the_profile() -> None:
+    """What the user came for decides which figure Home leads with, so it lives with
+    the user and not on the device — a preference that vanishes on reinstall cannot
+    anchor anything."""
+    user = make_user(verified=True)
+    repository = InMemoryAuthRepository(user)
+
+    output = await build(repository).execute(
+        UpdatePreferencesInputDTO(user_id=user.id, objective="deudas")
+    )
+
+    assert output.objective == "deudas"
+    stored = await repository.find_by_id(user.id)
+    assert stored is not None
+    assert stored.preferences.objective == "deudas"
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_objective_is_refused() -> None:
+    user = make_user(verified=True)
+
+    with pytest.raises(InvalidPreferencesError):
+        await build(InMemoryAuthRepository(user)).execute(
+            UpdatePreferencesInputDTO(user_id=user.id, objective="hacerme-rico")
+        )
+
+
+@pytest.mark.asyncio
+async def test_an_absent_objective_keeps_the_stored_one() -> None:
+    user = make_user(verified=True)
+    repository = InMemoryAuthRepository(user)
+    await build(repository).execute(UpdatePreferencesInputDTO(user_id=user.id, objective="ahorrar"))
+
+    output = await build(repository).execute(
+        UpdatePreferencesInputDTO(user_id=user.id, theme="dark")
+    )
+
+    assert (output.objective, output.theme) == ("ahorrar", "dark")
+
+
+@pytest.mark.asyncio
+async def test_a_user_starts_without_an_objective() -> None:
+    """Skipping the question is allowed; Home falls back to the spending pace."""
+    user = make_user(verified=True)
+
+    output = await build(InMemoryAuthRepository(user)).execute(
+        UpdatePreferencesInputDTO(user_id=user.id, theme="dark")
+    )
+
+    assert output.objective is None

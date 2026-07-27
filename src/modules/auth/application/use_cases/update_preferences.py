@@ -37,6 +37,7 @@ class UpdatePreferencesUseCase:
             language=input_dto.language,
             currency=input_dto.currency,
             theme=input_dto.theme,
+            objective=input_dto.objective,
         )
         currency_changed = preferences.currency != user.preferences.currency
         if currency_changed and await self.currency_scope.has_history(input_dto.user_id):

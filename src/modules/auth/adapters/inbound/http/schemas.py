@@ -64,6 +64,8 @@ class CurrentUserResponse(BaseModel):
     language: str
     currency: str
     theme: str
+    objective: str | None
+    """`gastos` | `ahorrar` | `deudas` — what the user came for. `null` if skipped."""
 
 
 class UpdateMeRequest(BaseModel):
@@ -76,3 +78,4 @@ class UpdatePreferencesRequest(BaseModel):
     language: str | None = Field(default=None, max_length=8)
     currency: str | None = Field(default=None, max_length=3)
     theme: str | None = Field(default=None, max_length=8)
+    objective: str | None = Field(default=None, max_length=16)

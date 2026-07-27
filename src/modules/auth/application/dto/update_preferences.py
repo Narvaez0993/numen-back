@@ -10,3 +10,6 @@ class UpdatePreferencesInputDTO(BaseModel):
     language: str | None = None
     currency: str | None = None
     theme: str | None = None
+    objective: str | None = None
+    """What the user is here for: `gastos` | `ahorrar` | `deudas`. Decides which
+    figure Home leads with."""
