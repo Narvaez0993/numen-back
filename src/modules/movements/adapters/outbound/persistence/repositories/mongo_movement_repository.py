@@ -9,6 +9,7 @@ from src.modules.movements.adapters.outbound.persistence.mappers.movement_mapper
 )
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
+    MerchantSpend,
     MovementQuery,
     MovementTotals,
 )
@@ -144,6 +145,45 @@ class MongoMovementRepository:
         return [
             CategorySpend(
                 category_id=row["_id"],
+                spent=int(row["spent"]),
+                count=int(row["count"]),
+            )
+            for row in rows
+        ]
+
+    async def top_merchants(
+        self,
+        user_id: UUID,
+        date_from: str,
+        date_to: str,
+        category_id: str | None,
+        limit: int,
+    ) -> list[MerchantSpend]:
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **self._range_match(user_id, date_from, date_to),
+                    "type": "expense",
+                    "category_id": category_id,
+                }
+            },
+            # Newest first, so `$first` below picks the spelling the user typed last.
+            {"$sort": {"occurred_on": -1}},
+            {
+                "$group": {
+                    "_id": {"$toLower": {"$trim": {"input": "$description"}}},
+                    "label": {"$first": "$description"},
+                    "spent": {"$sum": "$amount"},
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"spent": -1}},
+            {"$limit": limit},
+        ]
+        rows = await MovementDocument.aggregate(pipeline).to_list()
+        return [
+            MerchantSpend(
+                label=str(row["label"]).strip(),
                 spent=int(row["spent"]),
                 count=int(row["count"]),
             )
