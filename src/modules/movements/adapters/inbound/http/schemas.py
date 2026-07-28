@@ -1,7 +1,13 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 # `amount` is a positive integer in the minor unit of the user's currency; the sign
 # is a consequence of `type`. `occurred_on` is a date (`YYYY-MM-DD`), not a instant.
+
+# What a request may point at. The domain also knows `goal`, but pocket transfers are
+# minted only by the goals module through its port — never from this form.
+RequestSourceType = Literal["account", "credit_card"]
 
 
 class MovementResponse(BaseModel):
@@ -30,7 +36,7 @@ class CreateMovementRequest(BaseModel):
     type: str
     description: str = Field(min_length=1, max_length=80)
     amount: int
-    source_type: str
+    source_type: RequestSourceType
     source_id: str = Field(min_length=1, max_length=64)
     destination_type: str | None = None
     destination_id: str | None = Field(default=None, max_length=64)
@@ -47,7 +53,7 @@ class UpdateMovementRequest(BaseModel):
 
     description: str | None = Field(default=None, min_length=1, max_length=80)
     amount: int | None = None
-    source_type: str | None = None
+    source_type: RequestSourceType | None = None
     source_id: str | None = Field(default=None, min_length=1, max_length=64)
     destination_type: str | None = None
     destination_id: str | None = Field(default=None, min_length=1, max_length=64)

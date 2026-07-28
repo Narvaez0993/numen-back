@@ -53,6 +53,8 @@ class Settings(BaseSettings):
     credit_cards_free_limit: int = 1
     # Watched categories. The global cap is not here: every user has exactly one.
     budget_categories_free_limit: int = 2
+    # Open pockets at once; archived goals never count.
+    goals_active_free_limit: int = 1
 
     # AI providers
     anthropic_api_key: str = ""

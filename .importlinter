@@ -46,6 +46,7 @@ source_modules =
     src.modules.accounts.domain
     src.modules.movements.domain
     src.modules.subscriptions.domain
+    src.modules.goals.domain
     src.modules.overview.domain
     src.shared.domain
 forbidden_modules =
@@ -72,6 +73,7 @@ source_modules =
     src.modules.accounts.application
     src.modules.movements.application
     src.modules.subscriptions.application
+    src.modules.goals.application
     src.modules.overview.application
     src.shared.application
 forbidden_modules =
@@ -186,6 +188,7 @@ forbidden_modules =
     src.modules.categories
     src.modules.auth
     src.modules.subscriptions
+    src.modules.goals
 
 [importlinter:contract:subscriptions-hexagonal-layers]
 name = subscriptions module — hexagonal layers (adapters → application → domain)
@@ -308,8 +311,53 @@ forbidden_modules =
     src.modules.movements
     src.modules.subscriptions
     src.modules.budgets
+    src.modules.goals
     src.modules.auth
 allow_indirect_imports = True
+
+[importlinter:contract:goals-hexagonal-layers]
+name = goals module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.goals.adapters
+    src.modules.goals.application
+    src.modules.goals.domain
+
+[importlinter:contract:goals-inbound-forbids-outbound]
+name = goals — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.goals.adapters.inbound
+forbidden_modules =
+    src.modules.goals.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:goals-outbound-forbids-inbound]
+name = goals — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.goals.adapters.outbound
+forbidden_modules =
+    src.modules.goals.adapters.inbound
+allow_indirect_imports = True
+
+# A pocket's money lives in movements' transfers; the hexagon says so through
+# `FundsReader` and `TransferRecorder`, and only the outermost adapters know who
+# answers. (Movements' pocket ledger reads INTO goals the same way, adapter-only.)
+[importlinter:contract:goals-hexagon-independent-of-siblings]
+name = goals — the hexagon cannot import sibling modules (only its adapters may)
+type = forbidden
+source_modules =
+    src.modules.goals.domain
+    src.modules.goals.application
+forbidden_modules =
+    src.modules.accounts
+    src.modules.categories
+    src.modules.movements
+    src.modules.subscriptions
+    src.modules.budgets
+    src.modules.debts
+    src.modules.auth
 
 [importlinter:contract:overview-hexagonal-layers]
 name = overview module — hexagonal layers (adapters → application → domain)
@@ -353,6 +401,7 @@ forbidden_modules =
     src.modules.categories
     src.modules.budgets
     src.modules.debts
+    src.modules.goals
     src.modules.auth
 
 # Nobody depends on `overview`: it is a leaf that composes read views. If this
@@ -367,6 +416,7 @@ source_modules =
     src.modules.movements
     src.modules.budgets
     src.modules.debts
+    src.modules.goals
 forbidden_modules =
     src.modules.overview
 # Indirect only: every router reaches the composition root through the shared

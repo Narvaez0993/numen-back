@@ -8,10 +8,12 @@ SourceType = Literal["account", "credit_card", "goal"]
 CapturedVia = Literal["manual", "voice", "photo", "text", "recurring"]
 
 ALLOWED_TYPES: frozenset[str] = frozenset({"expense", "income", "transfer"})
+ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card", "goal"})
 # What a REQUEST may name. `goal` is deliberately absent: pocket transfers are minted
 # only by the goals module through its recorder port (the `subscription_id` precedent),
-# so the generic movement form can never write into a pocket by accident.
-ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
+# and the HTTP schemas enforce it — the generic movement form can never write into a
+# pocket by accident.
+REQUEST_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
 ALLOWED_CAPTURED_VIA: frozenset[str] = frozenset({"manual", "voice", "photo", "text", "recurring"})
 MAX_DESCRIPTION_LENGTH = 80
 # Sanity bound for money in minor units, same as accounts.
