@@ -64,6 +64,7 @@ class AnthropicAgentModel:
         effort: str,
         timeout_seconds: float = 45.0,
     ) -> None:
+        self._configured = bool(api_key)
         self._client = anthropic.AsyncAnthropic(
             api_key=api_key, timeout=timeout_seconds, max_retries=1
         )
@@ -79,6 +80,10 @@ class AnthropicAgentModel:
         tools: Sequence[ToolSpec],
         force_tool: str | None = None,
     ) -> ModelTurn:
+        if not self._configured:
+            # A missing key is the upstream being unavailable, deterministically —
+            # not a 500 (the SDK raises TypeError, not an API error, on empty auth).
+            raise AgentUnavailableError()
         sdk_tools = [_to_tool_param(spec) for spec in tools]
         if sdk_tools:
             sdk_tools[-1]["cache_control"] = _CACHE
@@ -100,7 +105,7 @@ class AnthropicAgentModel:
                 tools=sdk_tools,
                 **extra,
             )
-        except anthropic.APIError as exc:
+        except anthropic.AnthropicError as exc:
             raise AgentUnavailableError() from exc
 
         text = "".join(block.text for block in response.content if isinstance(block, TextBlock))
