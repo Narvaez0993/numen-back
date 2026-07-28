@@ -257,6 +257,7 @@ class SendChatMessageUseCase:
                             role="assistant",
                             text=turn.text or None,
                             tool_calls=turn.tool_calls,
+                            provider_state=turn.provider_state,
                         )
                     )
                     transcript.append(
@@ -293,7 +294,12 @@ class SendChatMessageUseCase:
                 )
 
             transcript.append(
-                ModelMessage(role="assistant", text=turn.text or None, tool_calls=turn.tool_calls)
+                ModelMessage(
+                    role="assistant",
+                    text=turn.text or None,
+                    tool_calls=turn.tool_calls,
+                    provider_state=turn.provider_state,
+                )
             )
             results: list[ToolResult] = []
             for call in turn.tool_calls:

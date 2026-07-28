@@ -42,6 +42,10 @@ class ModelMessage:
     text: str | None = None
     tool_calls: tuple[ToolCall, ...] = ()
     tool_results: tuple[ToolResult, ...] = ()
+    provider_state: str | None = None
+    """Opaque continuation state the adapter produced with this assistant turn
+    (e.g. reasoning blocks the provider demands back verbatim). The use case
+    round-trips it; only the adapter knows what is inside."""
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,8 @@ class ModelTurn:
     stop_reason: Literal["tool_use", "end_turn", "max_tokens", "refusal"]
     usage: TokenUsage
     model: str
+    provider_state: str | None = None
+    """Echo this back on the assistant `ModelMessage` when continuing the turn."""
 
 
 class AgentModel(Protocol):
