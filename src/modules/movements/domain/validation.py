@@ -4,13 +4,17 @@ The coherence table is the interesting part — each type demands a different sh
 
 | type       | source            | destination      | category    |
 |------------|-------------------|------------------|-------------|
-| `expense`  | required          | forbidden        | optional    |
+| `expense`  | required, no goal | forbidden        | optional    |
 | `income`   | required, account | forbidden        | optional    |
 | `transfer` | required          | required, differs| forbidden   |
 
 `income` is restricted to accounts in v1: money arriving on a card is a refund, a
 niche case that already has an exit (adjusting the debt by hand in Accounts moves
 the anchor correctly).
+
+A `goal` is a pocket of set-aside money, so it can only be a **transfer endpoint**
+(money in, money out) and never both ends at once: you cannot spend from a pocket
+or move between pockets — withdrawing to an account first is the honest path.
 """
 
 from datetime import date, timedelta
@@ -101,9 +105,13 @@ def ensure_shape(
             raise InvalidMovementError("A transfer needs two different sources")
         if category_id is not None:
             raise InvalidMovementError("A transfer does not take a category")
+        if source.type == "goal" and destination.type == "goal":
+            raise InvalidMovementError("A transfer cannot run between two goals")
         return
 
     if destination is not None:
         raise InvalidMovementError(f"A {movement_type} does not take a destination")
+    if source.type == "goal":
+        raise InvalidMovementError("A goal can only be a transfer endpoint")
     if movement_type == "income" and source.type != "account":
         raise InvalidMovementError("Income can only arrive on an account")
