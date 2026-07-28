@@ -8,8 +8,10 @@ class CapView:
     target: int
     spent: int
     remaining: int
+    """Goes negative when over — budgets says it, never clips it."""
     per_day: int | None
-    over: bool
+    projected: int | None
+    over: int | None
 
 
 @dataclass(frozen=True)
@@ -18,7 +20,7 @@ class CategoryCapView:
     target: int
     spent: int
     remaining: int
-    over: bool
+    over: int | None
 
 
 @dataclass(frozen=True)

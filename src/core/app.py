@@ -17,6 +17,21 @@ from src.modules.accounts.adapters.outbound.persistence.documents.account_docume
 from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
     CreditCardDocument,
 )
+from src.modules.assistant.adapters.inbound.http.routers import (
+    router as assistant_router,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.action_log_document import (
+    AIActionLogDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.chat_message_document import (
+    ChatMessageDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.movement_draft_document import (
+    MovementDraftDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.usage_counter_document import (
+    AIUsageCounterDocument,
+)
 from src.modules.auth.adapters.inbound.http.routers import router as auth_router
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
@@ -101,6 +116,10 @@ _DOCUMENTS = [
     CounterpartyDocument,
     SharedEventDocument,
     GoalDocument,
+    ChatMessageDocument,
+    MovementDraftDocument,
+    AIUsageCounterDocument,
+    AIActionLogDocument,
 ]
 
 
@@ -143,6 +162,7 @@ def create_app() -> FastAPI:
     app.include_router(budgets_router)
     app.include_router(debts_router)
     app.include_router(goals_router)
+    app.include_router(assistant_router)
     app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])

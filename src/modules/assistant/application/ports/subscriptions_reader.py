@@ -33,5 +33,5 @@ class SubscriptionsReader(Protocol):
     ) -> SubscriptionsView: ...
 
     async def upcoming_charges(
-        self, user_id: UUID, date_from: str, date_to: str
+        self, user_id: UUID, currency: str, date_from: str, date_to: str
     ) -> tuple[UpcomingChargeView, ...]: ...

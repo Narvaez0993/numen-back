@@ -17,6 +17,7 @@ previous turn lost them.
 """
 
 import json
+from collections.abc import Sequence
 from typing import Any, Literal, cast
 
 import anthropic
@@ -74,8 +75,8 @@ class AnthropicAgentModel:
         self,
         *,
         system: str,
-        messages: list[ModelMessage] | tuple[ModelMessage, ...],
-        tools: list[ToolSpec] | tuple[ToolSpec, ...],
+        messages: Sequence[ModelMessage],
+        tools: Sequence[ToolSpec],
         force_tool: str | None = None,
     ) -> ModelTurn:
         sdk_tools = [_to_tool_param(spec) for spec in tools]

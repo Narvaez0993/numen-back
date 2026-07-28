@@ -136,7 +136,9 @@ class ToolRegistry:
         if call.name == "list_upcoming_charges":
             days = min(int(args.get("days_ahead", 14)), 60)
             date_to = (date.fromisoformat(ctx.today) + timedelta(days=days)).isoformat()
-            charges = await self.subscriptions.upcoming_charges(ctx.user_id, ctx.today, date_to)
+            charges = await self.subscriptions.upcoming_charges(
+                ctx.user_id, ctx.currency, ctx.today, date_to
+            )
             return ToolOutcome(content=_dump([asdict(c) for c in charges]), is_read=True)
         if call.name == "list_categories":
             cats = await self.categories.all(ctx.user_id)

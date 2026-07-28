@@ -48,6 +48,7 @@ source_modules =
     src.modules.subscriptions.domain
     src.modules.goals.domain
     src.modules.overview.domain
+    src.modules.assistant.domain
     src.shared.domain
 forbidden_modules =
     fastapi
@@ -75,6 +76,7 @@ source_modules =
     src.modules.subscriptions.application
     src.modules.goals.application
     src.modules.overview.application
+    src.modules.assistant.application
     src.shared.application
 forbidden_modules =
     fastapi
@@ -94,6 +96,7 @@ forbidden_modules =
     src.modules.movements.adapters
     src.modules.subscriptions.adapters
     src.modules.overview.adapters
+    src.modules.assistant.adapters
 
 [importlinter:contract:categories-hexagonal-layers]
 name = categories module — hexagonal layers (adapters → application → domain)
@@ -187,6 +190,7 @@ forbidden_modules =
     src.modules.accounts
     src.modules.categories
     src.modules.auth
+    src.modules.assistant
     src.modules.subscriptions
     src.modules.goals
 
@@ -227,6 +231,7 @@ forbidden_modules =
     src.modules.categories
     src.modules.movements
     src.modules.auth
+    src.modules.assistant
 
 [importlinter:contract:budgets-hexagonal-layers]
 name = budgets module — hexagonal layers (adapters → application → domain)
@@ -269,6 +274,7 @@ forbidden_modules =
     src.modules.movements
     src.modules.subscriptions
     src.modules.auth
+    src.modules.assistant
 
 [importlinter:contract:debts-hexagonal-layers]
 name = debts module — hexagonal layers (adapters → application → domain)
@@ -313,6 +319,7 @@ forbidden_modules =
     src.modules.budgets
     src.modules.goals
     src.modules.auth
+    src.modules.assistant
 allow_indirect_imports = True
 
 [importlinter:contract:goals-hexagonal-layers]
@@ -358,6 +365,7 @@ forbidden_modules =
     src.modules.budgets
     src.modules.debts
     src.modules.auth
+    src.modules.assistant
 
 [importlinter:contract:overview-hexagonal-layers]
 name = overview module — hexagonal layers (adapters → application → domain)
@@ -403,9 +411,74 @@ forbidden_modules =
     src.modules.debts
     src.modules.goals
     src.modules.auth
+    src.modules.assistant
 
 # Nobody depends on `overview`: it is a leaf that composes read views. If this
 # ever breaks, a module started reaching for a screen's shape instead of its own.
+[importlinter:contract:assistant-hexagonal-layers]
+name = assistant module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.assistant.adapters
+    src.modules.assistant.application
+    src.modules.assistant.domain
+
+[importlinter:contract:assistant-inbound-forbids-outbound]
+name = assistant — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.assistant.adapters.inbound
+forbidden_modules =
+    src.modules.assistant.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:assistant-outbound-forbids-inbound]
+name = assistant — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.assistant.adapters.outbound
+forbidden_modules =
+    src.modules.assistant.adapters.inbound
+allow_indirect_imports = True
+
+# The agent's tools read the other modules the way overview does: only from the
+# OUTERMOST layer, one adapter per source, always through the other module's use
+# cases. The hexagon knows ToolSpecs and Views — never who answers them. This is
+# also what keeps `anthropic` quarantined: application-purity bans the SDK from
+# the hexagon, so the model client can only ever live in adapters/outbound/ai.
+[importlinter:contract:assistant-hexagon-independent-of-siblings]
+name = assistant — the hexagon cannot import sibling modules (only its adapters may)
+type = forbidden
+source_modules =
+    src.modules.assistant.domain
+    src.modules.assistant.application
+forbidden_modules =
+    src.modules.accounts
+    src.modules.categories
+    src.modules.movements
+    src.modules.subscriptions
+    src.modules.budgets
+    src.modules.debts
+    src.modules.goals
+    src.modules.auth
+
+# Like overview, assistant is a composer: nobody builds on top of the agent.
+[importlinter:contract:nobody-depends-on-assistant]
+name = no module may import assistant
+type = forbidden
+source_modules =
+    src.modules.auth
+    src.modules.categories
+    src.modules.accounts
+    src.modules.movements
+    src.modules.budgets
+    src.modules.debts
+    src.modules.goals
+    src.modules.overview
+forbidden_modules =
+    src.modules.assistant
+allow_indirect_imports = True
+
 [importlinter:contract:nobody-depends-on-overview]
 name = no module may import overview
 type = forbidden
@@ -417,6 +490,7 @@ source_modules =
     src.modules.budgets
     src.modules.debts
     src.modules.goals
+    src.modules.assistant
 forbidden_modules =
     src.modules.overview
 # Indirect only: every router reaches the composition root through the shared
