@@ -49,6 +49,7 @@ class ConfirmDraftUseCase:
             destination_id=edited.destination_id,
             category_id=edited.category_id,
             occurred_on=edited.occurred_on,
+            captured_via=edited.captured_via,
             idempotency_key=edited.id,
         )
         confirmed = edited.confirm(recorded.movement_id)

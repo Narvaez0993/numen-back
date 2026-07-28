@@ -25,6 +25,7 @@ class MovementDraftMapper:
             status=doc.status,
             movement_id=doc.movement_id,
             created_at=doc.created_at,
+            captured_via=doc.captured_via,
         )
 
     @staticmethod
@@ -45,4 +46,5 @@ class MovementDraftMapper:
             status=draft.status,
             movement_id=draft.movement_id,
             created_at=draft.created_at,
+            captured_via=draft.captured_via,
         )

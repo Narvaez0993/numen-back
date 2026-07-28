@@ -10,7 +10,8 @@ from src.modules.movements.application.use_cases.create_movement import CreateMo
 class MovementsMovementRecorder:
     """`MovementRecorder` backed by movements' create use case — the same door
     the manual form uses, so deltas, validation and idempotency stay one
-    implementation. `captured_via="text"` says how this movement was born.
+    implementation. `captured_via` carries how the movement was born (spoken or
+    typed) — the draft knows, this adapter just passes it along.
     """
 
     create_movement: CreateMovementUseCase
@@ -29,6 +30,7 @@ class MovementsMovementRecorder:
         destination_id: str | None,
         category_id: str | None,
         occurred_on: str,
+        captured_via: str,
         idempotency_key: str,
     ) -> RecordedMovement:
         movement = await self.create_movement.execute(
@@ -44,7 +46,7 @@ class MovementsMovementRecorder:
                 destination_id=destination_id,
                 category_id=category_id,
                 occurred_on=occurred_on,
-                captured_via="text",
+                captured_via=captured_via,
                 idempotency_key=idempotency_key,
             )
         )

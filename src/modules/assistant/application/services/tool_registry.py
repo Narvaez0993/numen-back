@@ -59,6 +59,10 @@ class ToolContext:
     registrations_used: int
     registrations_limit: int
     staged_count: int
+    capture_source: str = "text"
+    """Where the words came from (`text` | `voice`) — stamped onto the draft.
+    Deliberately NOT a tool parameter: provenance is the caller's fact, and a
+    schema change would shift the cached prompt prefix."""
 
 
 @dataclass(frozen=True)
@@ -220,6 +224,7 @@ class ToolRegistry:
             category_id=category_id,
             occurred_on=occurred_on,
             created_at=datetime.now(UTC),
+            captured_via=ctx.capture_source,
         )
         normalized = {
             "draft_id": draft.id,

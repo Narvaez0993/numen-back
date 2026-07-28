@@ -53,6 +53,9 @@ class MovementDraft:
     status: str
     movement_id: str | None
     created_at: datetime
+    captured_via: str = "text"
+    """How the words reached us (`text` | `voice`) — provenance is a fact of the
+    capture context, never something the model (or an edit) gets to claim."""
 
     @property
     def pending(self) -> bool:
@@ -74,6 +77,7 @@ class MovementDraft:
         category_id: str | None,
         occurred_on: str,
         created_at: datetime,
+        captured_via: str = "text",
     ) -> "MovementDraft":
         return cls(
             id=str(uuid4()),
@@ -91,6 +95,7 @@ class MovementDraft:
             status=PENDING,
             movement_id=None,
             created_at=created_at,
+            captured_via=captured_via,
         )
 
     def apply_overrides(self, overrides: dict[str, object]) -> "MovementDraft":
