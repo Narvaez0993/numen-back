@@ -44,3 +44,8 @@ def test_identity_fields_are_not_overridable() -> None:
 def test_overrides_demand_a_pending_draft() -> None:
     with pytest.raises(DraftNotPendingError):
         draft().discard().apply_overrides({"amount": 1})
+
+
+def test_provenance_is_not_overridable() -> None:
+    with pytest.raises(ValueError, match="not overridable"):
+        draft(captured_via="voice").apply_overrides({"captured_via": "manual"})

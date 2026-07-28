@@ -94,3 +94,14 @@ async def test_discard_flips_the_status_and_touches_no_money() -> None:
 
     assert output.draft.status == "discarded"
     assert drafts.by_id[staged.id].status == "discarded"
+
+
+@pytest.mark.asyncio
+async def test_confirm_forwards_the_drafts_provenance() -> None:
+    spoken = draft(captured_via="voice")
+    recorder = FakeMovementRecorder()
+    case = ConfirmDraftUseCase(drafts=FakeDrafts([spoken]), movement_recorder=recorder)
+
+    await case.execute(confirm_input(spoken.id))
+
+    assert recorder.recorded[0]["captured_via"] == "voice"
