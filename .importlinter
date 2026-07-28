@@ -267,6 +267,50 @@ forbidden_modules =
     src.modules.subscriptions
     src.modules.auth
 
+[importlinter:contract:debts-hexagonal-layers]
+name = debts module — hexagonal layers (adapters → application → domain)
+type = layers
+layers =
+    src.modules.debts.adapters
+    src.modules.debts.application
+    src.modules.debts.domain
+
+[importlinter:contract:debts-inbound-forbids-outbound]
+name = debts — adapters/inbound cannot import adapters/outbound (direct)
+type = forbidden
+source_modules =
+    src.modules.debts.adapters.inbound
+forbidden_modules =
+    src.modules.debts.adapters.outbound
+allow_indirect_imports = True
+
+[importlinter:contract:debts-outbound-forbids-inbound]
+name = debts — adapters/outbound cannot import adapters/inbound (direct)
+type = forbidden
+source_modules =
+    src.modules.debts.adapters.outbound
+forbidden_modules =
+    src.modules.debts.adapters.inbound
+allow_indirect_imports = True
+
+# A parallel ledger needs nothing from the money modules — not even adapters. The
+# WHOLE module keeps out of its siblings (stronger than the hexagon-only contracts
+# above); only `overview` reads INTO it, by port. Indirect chains through the
+# composition root (router → get_container) are the usual sanctioned bridge.
+[importlinter:contract:debts-independent-of-siblings]
+name = debts — the module cannot import sibling modules
+type = forbidden
+source_modules =
+    src.modules.debts
+forbidden_modules =
+    src.modules.accounts
+    src.modules.categories
+    src.modules.movements
+    src.modules.subscriptions
+    src.modules.budgets
+    src.modules.auth
+allow_indirect_imports = True
+
 [importlinter:contract:overview-hexagonal-layers]
 name = overview module — hexagonal layers (adapters → application → domain)
 type = layers
@@ -308,6 +352,7 @@ forbidden_modules =
     src.modules.movements
     src.modules.categories
     src.modules.budgets
+    src.modules.debts
     src.modules.auth
 
 # Nobody depends on `overview`: it is a leaf that composes read views. If this
@@ -321,6 +366,7 @@ source_modules =
     src.modules.accounts
     src.modules.movements
     src.modules.budgets
+    src.modules.debts
 forbidden_modules =
     src.modules.overview
 # Indirect only: every router reaches the composition root through the shared

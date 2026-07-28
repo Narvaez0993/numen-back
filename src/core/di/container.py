@@ -100,6 +100,35 @@ from src.modules.categories.application.use_cases.create_category import CreateC
 from src.modules.categories.application.use_cases.delete_category import DeleteCategoryUseCase
 from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
 from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
+from src.modules.debts.adapters.outbound.persistence.repositories.mongo_counterparty_repository import (  # noqa: E501
+    MongoCounterpartyRepository,
+)
+from src.modules.debts.adapters.outbound.persistence.repositories.mongo_debt_repository import (
+    MongoDebtRepository,
+)
+from src.modules.debts.adapters.outbound.persistence.repositories.mongo_shared_event_repository import (  # noqa: E501
+    MongoSharedEventRepository,
+)
+from src.modules.debts.application.ports.counterparty_repository import (
+    CounterpartyRepository,
+)
+from src.modules.debts.application.ports.debt_repository import DebtRepository
+from src.modules.debts.application.ports.event_repository import EventRepository
+from src.modules.debts.application.services.counterparty_resolver import (
+    CounterpartyResolver,
+)
+from src.modules.debts.application.use_cases.add_payment import AddPaymentUseCase
+from src.modules.debts.application.use_cases.create_debt import CreateDebtUseCase
+from src.modules.debts.application.use_cases.create_shared_event import (
+    CreateSharedEventUseCase,
+)
+from src.modules.debts.application.use_cases.delete_debt import DeleteDebtUseCase
+from src.modules.debts.application.use_cases.get_debt_totals import GetDebtTotalsUseCase
+from src.modules.debts.application.use_cases.get_debts_snapshot import (
+    GetDebtsSnapshotUseCase,
+)
+from src.modules.debts.application.use_cases.remove_payment import RemovePaymentUseCase
+from src.modules.debts.application.use_cases.update_debt import UpdateDebtUseCase
 from src.modules.movements.adapters.outbound.catalog.categories_category_lookup import (
     CategoriesCategoryLookup,
 )
@@ -286,6 +315,19 @@ class Container:
     update_budget_use_case: UpdateBudgetUseCase
     delete_budget_use_case: DeleteBudgetUseCase
 
+    # Debts
+    debt_repository: DebtRepository
+    counterparty_repository: CounterpartyRepository
+    event_repository: EventRepository
+    get_debts_snapshot_use_case: GetDebtsSnapshotUseCase
+    get_debt_totals_use_case: GetDebtTotalsUseCase
+    create_debt_use_case: CreateDebtUseCase
+    create_shared_event_use_case: CreateSharedEventUseCase
+    update_debt_use_case: UpdateDebtUseCase
+    delete_debt_use_case: DeleteDebtUseCase
+    add_payment_use_case: AddPaymentUseCase
+    remove_payment_use_case: RemovePaymentUseCase
+
     # Subscriptions
     subscription_repository: SubscriptionRepository
     subscription_source_reader: SourceReader
@@ -381,6 +423,19 @@ def build_container(settings: Settings | None = None) -> Container:
         budget_repository=budget_repository,
         spend_reader=budget_spend_reader,
     )
+
+    debt_repository: DebtRepository = MongoDebtRepository()
+    counterparty_repository: CounterpartyRepository = MongoCounterpartyRepository()
+    event_repository: EventRepository = MongoSharedEventRepository()
+    counterparty_resolver = CounterpartyResolver(
+        counterparty_repository=counterparty_repository,
+    )
+    get_debts_snapshot_use_case = GetDebtsSnapshotUseCase(
+        debt_repository=debt_repository,
+        counterparty_repository=counterparty_repository,
+        event_repository=event_repository,
+    )
+    get_debt_totals_use_case = GetDebtTotalsUseCase(debt_repository=debt_repository)
 
     subscription_repository: SubscriptionRepository = MongoSubscriptionRepository()
     subscription_source_reader: SourceReader = AccountsSourceReader(
@@ -575,6 +630,30 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         update_budget_use_case=UpdateBudgetUseCase(budget_repository=budget_repository),
         delete_budget_use_case=DeleteBudgetUseCase(budget_repository=budget_repository),
+        debt_repository=debt_repository,
+        counterparty_repository=counterparty_repository,
+        event_repository=event_repository,
+        get_debts_snapshot_use_case=get_debts_snapshot_use_case,
+        get_debt_totals_use_case=get_debt_totals_use_case,
+        create_debt_use_case=CreateDebtUseCase(
+            debt_repository=debt_repository,
+            counterparty_resolver=counterparty_resolver,
+        ),
+        create_shared_event_use_case=CreateSharedEventUseCase(
+            debt_repository=debt_repository,
+            event_repository=event_repository,
+            counterparty_repository=counterparty_repository,
+            counterparty_resolver=counterparty_resolver,
+            unit_of_work=unit_of_work,
+            snapshot=get_debts_snapshot_use_case,
+        ),
+        update_debt_use_case=UpdateDebtUseCase(debt_repository=debt_repository),
+        delete_debt_use_case=DeleteDebtUseCase(
+            debt_repository=debt_repository,
+            event_repository=event_repository,
+        ),
+        add_payment_use_case=AddPaymentUseCase(debt_repository=debt_repository),
+        remove_payment_use_case=RemovePaymentUseCase(debt_repository=debt_repository),
         subscription_repository=subscription_repository,
         subscription_source_reader=subscription_source_reader,
         subscription_category_reader=subscription_category_reader,

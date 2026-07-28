@@ -37,6 +37,18 @@ from src.modules.categories.adapters.inbound.http.routers import (
 from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
     CategoryDocument,
 )
+from src.modules.debts.adapters.inbound.http.routers import (
+    router as debts_router,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.counterparty_document import (
+    CounterpartyDocument,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.debt_document import (
+    DebtDocument,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.shared_event_document import (
+    SharedEventDocument,
+)
 from src.modules.movements.adapters.inbound.http.routers import (
     router as movements_router,
 )
@@ -79,6 +91,9 @@ _DOCUMENTS = [
     SubscriptionDocument,
     SubscriptionChargeDocument,
     BudgetDocument,
+    DebtDocument,
+    CounterpartyDocument,
+    SharedEventDocument,
 ]
 
 
@@ -119,6 +134,7 @@ def create_app() -> FastAPI:
     app.include_router(subscriptions_router)
     app.include_router(subscription_charges_router)
     app.include_router(budgets_router)
+    app.include_router(debts_router)
     app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])
