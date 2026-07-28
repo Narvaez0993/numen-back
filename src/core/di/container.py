@@ -164,6 +164,9 @@ from src.modules.overview.adapters.outbound.balance.accounts_balance_reader impo
 from src.modules.overview.adapters.outbound.budgets.budgets_global_cap_reader import (
     BudgetsGlobalCapReader,
 )
+from src.modules.overview.adapters.outbound.debts.debts_debt_reader import (
+    DebtsDebtReader,
+)
 from src.modules.overview.adapters.outbound.movements.movements_summary_reader import (
     MovementsSummaryReader,
 )
@@ -172,6 +175,7 @@ from src.modules.overview.adapters.outbound.subscriptions.subscriptions_upcoming
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
 from src.modules.overview.application.ports.budget_reader import BudgetReader
+from src.modules.overview.application.ports.debt_reader import DebtReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
 )
@@ -352,6 +356,7 @@ class Container:
     movement_summary_reader: MovementSummaryReader
     upcoming_charges_reader: UpcomingChargesReader
     budget_cap_reader: BudgetReader
+    debt_totals_reader: DebtReader
     get_home_overview_use_case: GetHomeOverviewUseCase
 
 
@@ -481,6 +486,9 @@ def build_container(settings: Settings | None = None) -> Container:
     )
     budget_cap_reader: BudgetReader = BudgetsGlobalCapReader(
         get_global_cap=get_global_cap_use_case,
+    )
+    debt_totals_reader: DebtReader = DebtsDebtReader(
+        get_debt_totals=get_debt_totals_use_case,
     )
 
     session_issuer = SessionIssuer(
@@ -700,11 +708,13 @@ def build_container(settings: Settings | None = None) -> Container:
         movement_summary_reader=movement_summary_reader,
         upcoming_charges_reader=upcoming_charges_reader,
         budget_cap_reader=budget_cap_reader,
+        debt_totals_reader=debt_totals_reader,
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,
             movement_summary_reader=movement_summary_reader,
             upcoming_charges_reader=upcoming_charges_reader,
             budget_reader=budget_cap_reader,
+            debt_reader=debt_totals_reader,
         ),
     )
 

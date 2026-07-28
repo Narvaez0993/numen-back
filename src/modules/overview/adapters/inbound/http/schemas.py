@@ -52,6 +52,15 @@ class BudgetResponse(BaseModel):
     """How much past the cap the month would close; `null` when it closes inside."""
 
 
+class DebtsResponse(BaseModel):
+    """Money between the user and people, live balances only. `i_owe` joins the card
+    debt in the hero's debt face; `owed_to_me` is an asset and stays a separate line."""
+
+    i_owe: int
+    owed_to_me: int
+    open_count: int
+
+
 class TopCategoryResponse(BaseModel):
     category_id: str | None
     spent: int
@@ -106,6 +115,8 @@ class HomeOverviewResponse(BaseModel):
     """Present whenever the user set a global cap, whatever `focus` says: with an
     objective of debt or saving the hero leads with that and keeps the cap as a
     secondary row."""
+    debts: DebtsResponse
+    """Always present — owing nobody is a measurement, not a missing block."""
     top_categories: list[TopCategoryResponse]
     recent: list[RecentMovementResponse]
     upcoming: list[UpcomingChargeResponse]

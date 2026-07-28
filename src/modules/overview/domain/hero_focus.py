@@ -25,6 +25,7 @@ def choose(
     objective: str | None,
     has_movements: bool,
     card_debt: int,
+    personal_debt: int,
     income: int,
     has_cap: bool,
 ) -> Focus:
@@ -43,7 +44,10 @@ def choose(
         return "start"
 
     if objective == OBJECTIVE_DEBT:
-        return "debt" if card_debt > 0 else "invite"
+        # Either kind of debt answers the objective: what the cards hold or what is
+        # owed to people. Only when both are zero is there nothing to show — and
+        # `invite` asks for it instead of papering over with a generic number.
+        return "debt" if card_debt > 0 or personal_debt > 0 else "invite"
 
     if objective == OBJECTIVE_SAVING:
         # Saving is `income - spent`; without income registered that subtraction is

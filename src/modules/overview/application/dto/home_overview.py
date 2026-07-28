@@ -3,6 +3,7 @@ from uuid import UUID
 from pydantic import BaseModel
 
 from src.modules.overview.application.ports.budget_reader import GlobalCapView
+from src.modules.overview.application.ports.debt_reader import DebtTotalsView
 from src.modules.overview.application.ports.movement_summary_reader import (
     RecentMovementView,
 )
@@ -67,6 +68,20 @@ class BudgetDTO(BaseModel):
 
     @classmethod
     def from_view(cls, view: GlobalCapView) -> "BudgetDTO":
+        return cls(**vars(view))
+
+
+class DebtsDTO(BaseModel):
+    """Money between the user and people. Always present: owing nobody is a real
+    measurement, not a missing block — unlike `pace` or `budget`, there is no state in
+    which these totals cannot be computed."""
+
+    i_owe: int
+    owed_to_me: int
+    open_count: int
+
+    @classmethod
+    def from_view(cls, view: DebtTotalsView) -> "DebtsDTO":
         return cls(**vars(view))
 
 
@@ -136,6 +151,7 @@ class HomeOverviewOutputDTO(BaseModel):
     month: MonthDTO
     pace: PaceDTO | None
     budget: BudgetDTO | None
+    debts: DebtsDTO
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
     upcoming: list[UpcomingChargeDTO]
