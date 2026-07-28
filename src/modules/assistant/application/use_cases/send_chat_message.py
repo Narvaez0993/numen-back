@@ -280,17 +280,48 @@ class SendChatMessageUseCase:
                     continue
 
             if not turn.tool_calls:
-                # `end_turn` with plain text: tolerated, wrapped as a text block.
+                # `end_turn` with plain text. The model sometimes MIMICS the history
+                # (which shows its past turns as compact JSON) and writes the blocks
+                # as text instead of calling the tool — so first try to salvage them.
                 text = turn.text.strip()
-                if text:
+                if not text:
+                    return _loop_fallback(
+                        prompt_builder.fallback_text(input_dto.language),
+                        staged,
+                        read_tools_used,
+                    )
+                salvaged = _parse_blocks_from_text(text, {draft.id for draft in staged})
+                if salvaged is not None:
                     return _LoopOutcome(
-                        blocks=(TextBlock(type="text", text=text[:2000]),),
+                        blocks=salvaged,
                         staged=tuple(staged),
                         read_tools_used=read_tools_used,
                         charged=True,
                     )
-                return _loop_fallback(
-                    prompt_builder.fallback_text(input_dto.language), staged, read_tools_used
+                if _looks_like_block_json(text) and not retried_blocks:
+                    # Almost-blocks that did not validate: showing them raw is the
+                    # one thing the user must never see — retry once instead.
+                    retried_blocks = True
+                    transcript.append(
+                        ModelMessage(
+                            role="assistant", text=text, provider_state=turn.provider_state
+                        )
+                    )
+                    transcript.append(
+                        ModelMessage(
+                            role="user",
+                            text=(
+                                "Never write blocks as text. Answer again by CALLING the "
+                                "respond_with_blocks tool."
+                            ),
+                        )
+                    )
+                    continue
+                return _LoopOutcome(
+                    blocks=(TextBlock(type="text", text=text[:2000]),),
+                    staged=tuple(staged),
+                    read_tools_used=read_tools_used,
+                    charged=True,
                 )
 
             transcript.append(
@@ -395,3 +426,31 @@ def _ensure_draft_refs_exist(blocks: list[LlmBlock], known_ids: set[str]) -> Non
     for block in blocks:
         if isinstance(block, DraftRefBlock) and block.draft_id not in known_ids:
             raise ValueError(f"draft block references unknown draft_id {block.draft_id!r}")
+
+
+def _parse_blocks_from_text(text: str, known_draft_ids: set[str]) -> tuple[LlmBlock, ...] | None:
+    """Blocks the model wrote as prose instead of calling the tool — salvage them.
+
+    Accepts the two shapes it produces: a bare JSON array of blocks, or the tool's
+    `{"blocks": [...]}` argument object. Anything else (including valid-JSON that
+    fails block validation) is not salvageable and returns None.
+    """
+    try:
+        parsed = json.loads(text)
+    except ValueError:
+        return None
+    payload = parsed.get("blocks") if isinstance(parsed, dict) else parsed
+    if not isinstance(payload, list):
+        return None
+    try:
+        validated = RespondWithBlocksInput.model_validate({"blocks": payload})
+        _ensure_draft_refs_exist(validated.blocks, known_draft_ids)
+    except (PydanticValidationError, ValueError):
+        return None
+    return tuple(validated.blocks)
+
+
+def _looks_like_block_json(text: str) -> bool:
+    """Close enough to block JSON that showing it raw would be the real failure."""
+    head = text.lstrip()[:80]
+    return head.startswith(("[{", '{"blocks"')) and '"type"' in text

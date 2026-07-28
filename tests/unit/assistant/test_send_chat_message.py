@@ -374,3 +374,59 @@ async def test_the_context_rides_in_the_last_user_message() -> None:
     assert "¿cómo voy?" in last_user.text
     assert "es" not in model.requests[0]["system"][:2]  # system starts with the ES identity
     assert model.requests[0]["system"].startswith("Eres")
+
+
+@pytest.mark.asyncio
+async def test_blocks_written_as_text_are_salvaged_and_rendered() -> None:
+    # The model sometimes mimics the history's JSON instead of calling the tool.
+    mimic = json.dumps(
+        [
+            {"type": "text", "text": "Este mes tus gastos se concentran en dos categorías."},
+            {"type": "stat", "label": "Suscripciones", "value": "$50.000", "amount": 50000},
+            {"type": "navigate", "label": "Ver movimientos", "route": "/movements"},
+        ]
+    )
+    case, _, _, usage, _ = use_case(FakeAgentModel([turn(text=mimic, stop_reason="end_turn")]))
+
+    output = await case.execute(send_input("¿en qué se me va la plata?"))
+
+    kinds = [block.type for block in output.message.blocks]
+    assert kinds == ["text", "stat", "navigate"]
+    assert usage.consumed == [{"registrations": 0, "messages": 1}]
+
+
+@pytest.mark.asyncio
+async def test_the_tool_argument_object_written_as_text_is_salvaged_too() -> None:
+    mimic = json.dumps({"blocks": [{"type": "text", "text": "hola"}]})
+    case, _, _, _, _ = use_case(FakeAgentModel([turn(text=mimic, stop_reason="end_turn")]))
+
+    output = await case.execute(send_input())
+
+    assert [block.type for block in output.message.blocks] == ["text"]
+
+
+@pytest.mark.asyncio
+async def test_almost_block_json_retries_instead_of_showing_raw_json() -> None:
+    broken = '[{"type": "stat", "label": "x"}]'  # missing required `value`
+    good = turn(tool_calls=(respond_call([{"type": "text", "text": "listo"}]),))
+    model = FakeAgentModel([turn(text=broken, stop_reason="end_turn"), good])
+    case, _, _, _, _ = use_case(model)
+
+    output = await case.execute(send_input())
+
+    assert len(model.requests) == 2
+    text_block = output.message.blocks[0]
+    assert text_block.type == "text"
+    assert "listo" in text_block.text  # type: ignore[union-attr]
+
+
+@pytest.mark.asyncio
+async def test_ordinary_prose_still_lands_as_a_text_block() -> None:
+    case, _, _, usage, _ = use_case(
+        FakeAgentModel([turn(text="Hola, ¿en qué te ayudo?", stop_reason="end_turn")])
+    )
+
+    output = await case.execute(send_input("hola"))
+
+    assert output.message.blocks[0].type == "text"
+    assert usage.consumed == [{"registrations": 0, "messages": 1}]
