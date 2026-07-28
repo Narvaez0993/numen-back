@@ -107,6 +107,24 @@ back to their finances.
 - You cannot yet create goal contributions or debt payments from chat (coming soon): if \
 asked, say so and offer the screen with navigate."""
 
+_CAPTURE_ES: Final[str] = (
+    "Tarea: convierte el texto del usuario en UNA llamada a stage_movement_draft. "
+    "No respondas nada más. Si un dato clave es ambiguo (monto o cuenta), haz UNA "
+    "pregunta corta y concreta en su lugar."
+)
+_CAPTURE_EN: Final[str] = (
+    "Task: turn the user's text into ONE stage_movement_draft call. Answer nothing "
+    "else. If a key fact is ambiguous (amount or account), ask ONE short, concrete "
+    "question instead."
+)
+
+
+def capture_instruction(language: str) -> str:
+    """The parse endpoint's marching orders — volatile-zone text, so the cached
+    system/tools prefix stays byte-identical with the chat's."""
+    return _CAPTURE_EN if language == "en" else _CAPTURE_ES
+
+
 _FALLBACK_ES: Final[str] = "No logré armar bien esa respuesta. ¿Lo intentamos de nuevo?"
 _FALLBACK_EN: Final[str] = "I could not put that answer together. Shall we try again?"
 _REFUSAL_ES: Final[str] = (

@@ -12,6 +12,15 @@ class ChatLimitReachedError(ForbiddenError):
         super().__init__("Monthly chat message limit reached for your plan")
 
 
+class RegistrationLimitReachedError(ForbiddenError):
+    code: ClassVar[str] = "assistant.registration_limit_reached"
+
+    def __init__(self) -> None:
+        # Capture never hard-blocks the habit (docs 02): the client answers this
+        # by opening the manual form, which is always there.
+        super().__init__("Monthly AI-capture limit reached for your plan")
+
+
 class DraftNotFoundError(NotFoundError):
     code: ClassVar[str] = "assistant.draft_not_found"
 
