@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from src.modules.overview.application.ports.budget_reader import GlobalCapView
 from src.modules.overview.application.ports.debt_reader import DebtTotalsView
+from src.modules.overview.application.ports.goal_reader import TopGoalView
 from src.modules.overview.application.ports.movement_summary_reader import (
     RecentMovementView,
 )
@@ -85,6 +86,21 @@ class DebtsDTO(BaseModel):
         return cls(**vars(view))
 
 
+class GoalDTO(BaseModel):
+    """The pocket Home leads with — the active goal closest to done. `null` when no
+    goal is active; the saving face then falls back to the month's figures."""
+
+    name: str
+    target: int
+    saved: int
+    pct: float
+    projected_on: str | None
+
+    @classmethod
+    def from_view(cls, view: TopGoalView) -> "GoalDTO":
+        return cls(**vars(view))
+
+
 class TopCategoryDTO(BaseModel):
     category_id: str | None
     spent: int
@@ -152,6 +168,7 @@ class HomeOverviewOutputDTO(BaseModel):
     pace: PaceDTO | None
     budget: BudgetDTO | None
     debts: DebtsDTO
+    goal: GoalDTO | None
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
     upcoming: list[UpcomingChargeDTO]

@@ -11,6 +11,7 @@ from .fakes import (
     FakeBalanceReader,
     FakeBudgetReader,
     FakeDebtReader,
+    FakeGoalReader,
     FakeMovementSummaryReader,
     FakeUpcomingChargesReader,
     debt_totals,
@@ -35,6 +36,7 @@ def build(
     charges: FakeUpcomingChargesReader | None = None,
     budgets: FakeBudgetReader | None = None,
     debts: FakeDebtReader | None = None,
+    goals: FakeGoalReader | None = None,
 ) -> GetHomeOverviewUseCase:
     return GetHomeOverviewUseCase(
         balance_reader=balance or FakeBalanceReader(),
@@ -42,6 +44,7 @@ def build(
         upcoming_charges_reader=charges or FakeUpcomingChargesReader(),
         budget_reader=budgets or FakeBudgetReader(),
         debt_reader=debts or FakeDebtReader(),
+        goal_reader=goals or FakeGoalReader(),
     )
 
 
@@ -369,3 +372,26 @@ async def test_upcoming_charges_travel_as_references_with_their_state() -> None:
         ("gym", "scheduled", None),
     ]
     assert not hasattr(output.upcoming[0], "name")
+
+
+@pytest.mark.asyncio
+async def test_the_pocket_leads_the_saving_face() -> None:
+    from .fakes import top_goal
+
+    summaries = FakeMovementSummaryReader(month=PeriodSummary(expense_total=100_000, count=2))
+
+    output = await overview(
+        build(summaries=summaries, goals=FakeGoalReader(top_goal())), objective="ahorrar"
+    )
+
+    assert output.focus == "saving"
+    assert output.goal is not None
+    assert output.goal.name == "Viaje a Japón"
+    assert output.goal.saved == 4_100_000
+
+
+@pytest.mark.asyncio
+async def test_no_pocket_is_null_not_zeros() -> None:
+    output = await overview(build())
+
+    assert output.goal is None

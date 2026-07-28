@@ -21,6 +21,7 @@ def test_without_movements_nothing_can_be_said_about_a_month() -> None:
                 personal_debt=0,
                 income=5_000_000,
                 has_cap=True,
+                has_goal=False,
             )
             == "start"
         )
@@ -35,6 +36,7 @@ def test_the_pace_is_the_default_once_there_are_movements() -> None:
             personal_debt=0,
             income=0,
             has_cap=False,
+            has_goal=False,
         )
         == "pace"
     )
@@ -46,6 +48,7 @@ def test_the_pace_is_the_default_once_there_are_movements() -> None:
             personal_debt=0,
             income=0,
             has_cap=False,
+            has_goal=False,
         )
         == "pace"
     )
@@ -56,7 +59,13 @@ def test_a_cap_replaces_the_bare_pace() -> None:
     chose."""
     assert (
         choose(
-            objective=None, has_movements=True, card_debt=0, personal_debt=0, income=0, has_cap=True
+            objective=None,
+            has_movements=True,
+            card_debt=0,
+            personal_debt=0,
+            income=0,
+            has_cap=True,
+            has_goal=False,
         )
         == "budget"
     )
@@ -68,6 +77,7 @@ def test_a_cap_replaces_the_bare_pace() -> None:
             personal_debt=0,
             income=0,
             has_cap=True,
+            has_goal=False,
         )
         == "budget"
     )
@@ -82,6 +92,7 @@ def test_wanting_out_of_debt_leads_with_the_debt() -> None:
             personal_debt=0,
             income=0,
             has_cap=False,
+            has_goal=False,
         )
         == "debt"
     )
@@ -98,6 +109,7 @@ def test_the_declared_objective_still_wins_over_a_cap() -> None:
             personal_debt=0,
             income=0,
             has_cap=True,
+            has_goal=False,
         )
         == "debt"
     )
@@ -109,6 +121,7 @@ def test_the_declared_objective_still_wins_over_a_cap() -> None:
             personal_debt=0,
             income=5_000_000,
             has_cap=True,
+            has_goal=False,
         )
         == "saving"
     )
@@ -124,6 +137,7 @@ def test_personal_debt_alone_answers_the_debt_objective() -> None:
             personal_debt=200_000,
             income=0,
             has_cap=False,
+            has_goal=False,
         )
         == "debt"
     )
@@ -140,6 +154,7 @@ def test_wanting_out_of_debt_without_any_debt_asks_for_it() -> None:
             personal_debt=0,
             income=5_000_000,
             has_cap=True,
+            has_goal=False,
         )
         == "invite"
     )
@@ -154,6 +169,7 @@ def test_wanting_to_save_leads_with_what_was_saved() -> None:
             personal_debt=0,
             income=5_000_000,
             has_cap=False,
+            has_goal=False,
         )
         == "saving"
     )
@@ -169,6 +185,7 @@ def test_wanting_to_save_without_income_asks_for_it() -> None:
             personal_debt=0,
             income=0,
             has_cap=False,
+            has_goal=False,
         )
         == "invite"
     )
@@ -185,6 +202,23 @@ def test_the_objective_wins_over_the_data_it_does_not_need() -> None:
             personal_debt=0,
             income=9_000_000,
             has_cap=False,
+            has_goal=False,
         )
         == "debt"
+    )
+
+
+def test_a_pocket_answers_the_saving_objective_before_any_income() -> None:
+    """Money set aside toward a goal is savings even if no salary was registered."""
+    assert (
+        choose(
+            objective="ahorrar",
+            has_movements=True,
+            card_debt=0,
+            personal_debt=0,
+            income=0,
+            has_cap=False,
+            has_goal=True,
+        )
+        == "saving"
     )

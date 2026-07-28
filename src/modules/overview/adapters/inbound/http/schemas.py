@@ -61,6 +61,17 @@ class DebtsResponse(BaseModel):
     open_count: int
 
 
+class GoalResponse(BaseModel):
+    """The active goal closest to done; `null` without one. The saving face leads
+    with it and keeps the month's saved figure as the supporting line."""
+
+    name: str
+    target: int
+    saved: int
+    pct: float
+    projected_on: str | None
+
+
 class TopCategoryResponse(BaseModel):
     category_id: str | None
     spent: int
@@ -117,6 +128,7 @@ class HomeOverviewResponse(BaseModel):
     secondary row."""
     debts: DebtsResponse
     """Always present — owing nobody is a measurement, not a missing block."""
+    goal: GoalResponse | None
     top_categories: list[TopCategoryResponse]
     recent: list[RecentMovementResponse]
     upcoming: list[UpcomingChargeResponse]
