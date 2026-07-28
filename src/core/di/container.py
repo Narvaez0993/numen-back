@@ -94,6 +94,7 @@ from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDra
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase
+from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
 from src.modules.auth.adapters.outbound.crypto.jwt_token_service import JwtTokenService
@@ -492,6 +493,7 @@ class Container:
     assistant_movement_recorder: AssistantMovementRecorder
     assistant_tool_registry: ToolRegistry
     send_chat_message_use_case: SendChatMessageUseCase
+    parse_capture_use_case: ParseCaptureUseCase
     get_chat_history_use_case: GetChatHistoryUseCase
     confirm_draft_use_case: ConfirmDraftUseCase
     discard_draft_use_case: DiscardDraftUseCase
@@ -996,6 +998,19 @@ def build_container(settings: Settings | None = None) -> Container:
             model_name=settings.anthropic_model,
             history_window=settings.assistant_history_window,
             max_tool_iterations=settings.assistant_max_tool_iterations,
+        ),
+        parse_capture_use_case=ParseCaptureUseCase(
+            agent_model=assistant_agent_model,
+            tool_registry=assistant_tool_registry,
+            drafts=movement_draft_repository,
+            usage_counters=assistant_usage_counters,
+            action_log=assistant_action_log,
+            unit_of_work=unit_of_work,
+            accounts_reader=assistant_accounts_reader,
+            categories_reader=assistant_categories_reader,
+            plan_limits=assistant_plan_limits,
+            pricing=assistant_pricing,
+            model_name=settings.anthropic_model,
         ),
         get_chat_history_use_case=GetChatHistoryUseCase(
             chat_messages=chat_message_repository,

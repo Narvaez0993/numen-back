@@ -7,6 +7,8 @@ from src.modules.assistant.adapters.inbound.http.schemas import (
     ConfirmDraftRequest,
     ConfirmDraftResponse,
     DiscardDraftResponse,
+    ParseRequest,
+    ParseResponse,
     UsageResponse,
 )
 from src.modules.assistant.application.dto.chat import HistoryInputDTO, SendChatInputDTO
@@ -14,10 +16,12 @@ from src.modules.assistant.application.dto.draft_commands import (
     ConfirmDraftInputDTO,
     DiscardDraftInputDTO,
 )
+from src.modules.assistant.application.dto.parse import ParseCaptureInputDTO
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase, UsageInputDTO
+from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.shared.adapters.inbound.http.dependencies import CallerContext, get_caller
 from src.shared.adapters.inbound.http.today import resolve_today
@@ -29,6 +33,12 @@ def _depends_send_chat() -> SendChatMessageUseCase:
     from src.core.di.container import get_container
 
     return get_container().send_chat_message_use_case
+
+
+def _depends_parse() -> ParseCaptureUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().parse_capture_use_case
 
 
 def _depends_history() -> GetChatHistoryUseCase:
@@ -75,6 +85,28 @@ async def send_chat_message(
         )
     )
     return ChatTurnResponse(**output.model_dump())
+
+
+@router.post("/parse", response_model=ParseResponse)
+async def parse_capture(
+    body: ParseRequest,
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: ParseCaptureUseCase = Depends(_depends_parse),
+) -> ParseResponse:
+    output = await use_case.execute(
+        ParseCaptureInputDTO(
+            user_id=caller.user_id,
+            currency=caller.currency,
+            tier=caller.tier,
+            language=caller.language,
+            objective=caller.objective,
+            today=resolve_today(today),
+            text=body.text,
+            source=body.source,
+        )
+    )
+    return ParseResponse(**output.model_dump())
 
 
 @router.get("/chat/history", response_model=ChatHistoryResponse)

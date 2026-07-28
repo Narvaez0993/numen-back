@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -58,6 +59,19 @@ class DraftResponse(BaseModel):
     occurred_on: str
     status: str
     movement_id: str | None
+
+
+class ParseRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=2000)
+    source: Literal["voice", "text"]
+
+
+class ParseResponse(BaseModel):
+    """Exactly one of `draft` / `clarification` is set."""
+
+    draft: DraftResponse | None
+    clarification: str | None
+    usage: UsageResponse
 
 
 class ConfirmDraftRequest(BaseModel):
