@@ -2,6 +2,8 @@ from uuid import UUID, uuid4
 
 from src.modules.overview.application.ports.balance_reader import BalanceSnapshot
 from src.modules.overview.application.ports.budget_reader import GlobalCapView
+from src.modules.overview.application.ports.debt_reader import DebtTotalsView
+from src.modules.overview.application.ports.goal_reader import TopGoalView
 from src.modules.overview.application.ports.movement_summary_reader import (
     CategorySpendView,
     PeriodSummary,
@@ -95,6 +97,46 @@ class FakeBudgetReader:
     async def global_cap(self, user_id: UUID, today: str) -> GlobalCapView | None:
         self.days.append(today)
         return self.cap
+
+
+class FakeDebtReader:
+    """Nobody owes anybody by default — most of Home's tests predate debts."""
+
+    def __init__(self, totals: DebtTotalsView | None = None) -> None:
+        self.result = totals or DebtTotalsView(i_owe=0, owed_to_me=0, open_count=0)
+
+    async def totals(self, user_id: UUID) -> DebtTotalsView:
+        return self.result
+
+
+class FakeGoalReader:
+    """No pocket by default — most of Home's tests predate goals."""
+
+    def __init__(self, goal: TopGoalView | None = None) -> None:
+        self.goal = goal
+
+    async def top_goal(self, user_id: UUID, today: str) -> TopGoalView | None:
+        return self.goal
+
+
+def top_goal(
+    *,
+    name: str = "Viaje a Japón",
+    target: int = 12_000_000,
+    saved: int = 4_100_000,
+    projected_on: str | None = "2027-04",
+) -> TopGoalView:
+    return TopGoalView(
+        name=name,
+        target=target,
+        saved=saved,
+        pct=saved / target,
+        projected_on=projected_on,
+    )
+
+
+def debt_totals(*, i_owe: int = 0, owed_to_me: int = 0, open_count: int = 0) -> DebtTotalsView:
+    return DebtTotalsView(i_owe=i_owe, owed_to_me=owed_to_me, open_count=open_count)
 
 
 def global_cap(

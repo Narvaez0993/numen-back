@@ -4,11 +4,16 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 MovementType = Literal["expense", "income", "transfer"]
-SourceType = Literal["account", "credit_card"]
+SourceType = Literal["account", "credit_card", "goal"]
 CapturedVia = Literal["manual", "voice", "photo", "text", "recurring"]
 
 ALLOWED_TYPES: frozenset[str] = frozenset({"expense", "income", "transfer"})
-ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
+ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card", "goal"})
+# What a REQUEST may name. `goal` is deliberately absent: pocket transfers are minted
+# only by the goals module through its recorder port (the `subscription_id` precedent),
+# and the HTTP schemas enforce it — the generic movement form can never write into a
+# pocket by accident.
+REQUEST_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
 ALLOWED_CAPTURED_VIA: frozenset[str] = frozenset({"manual", "voice", "photo", "text", "recurring"})
 MAX_DESCRIPTION_LENGTH = 80
 # Sanity bound for money in minor units, same as accounts.
@@ -17,10 +22,12 @@ MAX_AMOUNT = 10**15
 
 @dataclass(frozen=True)
 class SourceRef:
-    """Where the money sits: an account or a credit card.
+    """Where the money sits: an account, a credit card, or a goal's pocket.
 
-    Two collections hold sources, so a reference needs both parts. Movements only
-    ever carry the reference — resolving it is the ledger's job.
+    Several collections hold sources, so a reference needs both parts. Movements only
+    ever carry the reference — resolving it is the ledger's job. A `goal` ref is valid
+    **only as a transfer endpoint**: pockets hold set-aside money, so nothing is spent
+    or earned in one directly.
     """
 
     type: SourceType

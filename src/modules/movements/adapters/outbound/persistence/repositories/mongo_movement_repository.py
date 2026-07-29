@@ -9,6 +9,7 @@ from src.modules.movements.adapters.outbound.persistence.mappers.movement_mapper
 )
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
+    GoalFunds,
     MerchantSpend,
     MovementQuery,
     MovementTotals,
@@ -189,3 +190,50 @@ class MongoMovementRepository:
             )
             for row in rows
         ]
+
+    async def goal_funds(self, user_id: UUID) -> list[GoalFunds]:
+        incoming = await MovementDocument.aggregate(
+            [
+                {
+                    "$match": {
+                        "user_id": str(user_id),
+                        "type": "transfer",
+                        "destination_type": "goal",
+                    }
+                },
+                {
+                    "$group": {
+                        "_id": "$destination_id",
+                        "total": {"$sum": "$amount"},
+                        "first_on": {"$min": "$occurred_on"},
+                    }
+                },
+            ]
+        ).to_list()
+        outgoing = await MovementDocument.aggregate(
+            [
+                {
+                    "$match": {
+                        "user_id": str(user_id),
+                        "type": "transfer",
+                        "source_type": "goal",
+                    }
+                },
+                {"$group": {"_id": "$source_id", "total": {"$sum": "$amount"}}},
+            ]
+        ).to_list()
+
+        withdrawn = {row["_id"]: int(row["total"]) for row in outgoing}
+        funds = {
+            row["_id"]: GoalFunds(
+                goal_id=row["_id"],
+                saved=int(row["total"]) - withdrawn.pop(row["_id"], 0),
+                first_in_on=row["first_on"],
+            )
+            for row in incoming
+        }
+        # A pocket someone only ever withdrew from (contributions deleted, say) still
+        # has to report — as zero-or-negative funds the caller can see, not silence.
+        for goal_id, total in withdrawn.items():
+            funds[goal_id] = GoalFunds(goal_id=goal_id, saved=-total, first_in_on=None)
+        return list(funds.values())

@@ -6,6 +6,12 @@ from src.modules.accounts.adapters.outbound.persistence.documents.account_docume
 from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
     CreditCardDocument,
 )
+from src.modules.debts.adapters.outbound.persistence.documents.debt_document import (
+    DebtDocument,
+)
+from src.modules.goals.adapters.outbound.persistence.documents.goal_document import (
+    GoalDocument,
+)
 from src.modules.movements.adapters.outbound.persistence.documents.movement_document import (
     MovementDocument,
 )
@@ -44,5 +50,10 @@ class SourcesCurrencyScope:
             CreditCardDocument,
             SubscriptionDocument,
             SubscriptionChargeDocument,
+            # Debts and goals are setup too: a ledger typed in the wrong currency is
+            # the same onboarding mistake. Payments and events carry no currency of
+            # their own.
+            DebtDocument,
+            GoalDocument,
         ):
             await document.find(criteria).update(update, session=session)

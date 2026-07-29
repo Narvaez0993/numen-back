@@ -17,6 +17,21 @@ from src.modules.accounts.adapters.outbound.persistence.documents.account_docume
 from src.modules.accounts.adapters.outbound.persistence.documents.credit_card_document import (
     CreditCardDocument,
 )
+from src.modules.assistant.adapters.inbound.http.routers import (
+    router as assistant_router,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.action_log_document import (
+    AIActionLogDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.chat_message_document import (
+    ChatMessageDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.movement_draft_document import (
+    MovementDraftDocument,
+)
+from src.modules.assistant.adapters.outbound.persistence.documents.usage_counter_document import (
+    AIUsageCounterDocument,
+)
 from src.modules.auth.adapters.inbound.http.routers import router as auth_router
 from src.modules.auth.adapters.outbound.persistence.documents.email_verification_code_document import (  # noqa: E501
     EmailVerificationCodeDocument,
@@ -36,6 +51,24 @@ from src.modules.categories.adapters.inbound.http.routers import (
 )
 from src.modules.categories.adapters.outbound.persistence.documents.category_document import (
     CategoryDocument,
+)
+from src.modules.debts.adapters.inbound.http.routers import (
+    router as debts_router,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.counterparty_document import (
+    CounterpartyDocument,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.debt_document import (
+    DebtDocument,
+)
+from src.modules.debts.adapters.outbound.persistence.documents.shared_event_document import (
+    SharedEventDocument,
+)
+from src.modules.goals.adapters.inbound.http.routers import (
+    router as goals_router,
+)
+from src.modules.goals.adapters.outbound.persistence.documents.goal_document import (
+    GoalDocument,
 )
 from src.modules.movements.adapters.inbound.http.routers import (
     router as movements_router,
@@ -79,6 +112,14 @@ _DOCUMENTS = [
     SubscriptionDocument,
     SubscriptionChargeDocument,
     BudgetDocument,
+    DebtDocument,
+    CounterpartyDocument,
+    SharedEventDocument,
+    GoalDocument,
+    ChatMessageDocument,
+    MovementDraftDocument,
+    AIUsageCounterDocument,
+    AIActionLogDocument,
 ]
 
 
@@ -119,6 +160,9 @@ def create_app() -> FastAPI:
     app.include_router(subscriptions_router)
     app.include_router(subscription_charges_router)
     app.include_router(budgets_router)
+    app.include_router(debts_router)
+    app.include_router(goals_router)
+    app.include_router(assistant_router)
     app.include_router(home_router)
 
     @app.get("/healthz", tags=["meta"])
