@@ -42,6 +42,20 @@ class CategorySpend:
 
 
 @dataclass(frozen=True)
+class GoalFunds:
+    """What a goal's pocket holds: transfers in minus transfers out.
+
+    There is no stored balance behind this — the pocket's money IS these movements,
+    which is why it can never drift. `first_in_on` feeds the contribution-pace
+    projection (goals owns that math; this is just the raw material).
+    """
+
+    goal_id: str
+    saved: int
+    first_in_on: str | None
+
+
+@dataclass(frozen=True)
 class MerchantSpend:
     """Expenses of a date range grouped by **what the user typed**.
 
@@ -90,4 +104,8 @@ class MovementRepository(Protocol):
         `category_id=None` means the unclassified bucket, not "any category": it is a
         filter on the same field the listing uses.
         """
+        ...
+
+    async def goal_funds(self, user_id: UUID) -> list[GoalFunds]:
+        """Per goal: transfers in minus out, and the day of the first contribution."""
         ...

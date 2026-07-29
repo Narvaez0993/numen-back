@@ -3,6 +3,8 @@ from datetime import date, timedelta
 
 from src.modules.overview.application.dto.home_overview import (
     BudgetDTO,
+    DebtsDTO,
+    GoalDTO,
     HomeOverviewInputDTO,
     HomeOverviewOutputDTO,
     MonthDTO,
@@ -14,6 +16,8 @@ from src.modules.overview.application.dto.home_overview import (
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
 from src.modules.overview.application.ports.budget_reader import BudgetReader
+from src.modules.overview.application.ports.debt_reader import DebtReader
+from src.modules.overview.application.ports.goal_reader import GoalReader
 from src.modules.overview.application.ports.movement_summary_reader import (
     MovementSummaryReader,
     PeriodSummary,
@@ -54,6 +58,8 @@ class GetHomeOverviewUseCase:
     movement_summary_reader: MovementSummaryReader
     upcoming_charges_reader: UpcomingChargesReader
     budget_reader: BudgetReader
+    debt_reader: DebtReader
+    goal_reader: GoalReader
 
     async def execute(self, input_dto: HomeOverviewInputDTO) -> HomeOverviewOutputDTO:
         period = MonthPeriod.containing(date.fromisoformat(input_dto.today))
@@ -72,6 +78,8 @@ class GetHomeOverviewUseCase:
         )
         recent = await self.movement_summary_reader.recent(input_dto.user_id, RECENT_MOVEMENTS)
         cap = await self.budget_reader.global_cap(input_dto.user_id, input_dto.today)
+        debts = await self.debt_reader.totals(input_dto.user_id)
+        goal = await self.goal_reader.top_goal(input_dto.user_id, input_dto.today)
         upcoming = await self.upcoming_charges_reader.upcoming(
             input_dto.user_id,
             input_dto.today,
@@ -90,8 +98,10 @@ class GetHomeOverviewUseCase:
             objective=input_dto.objective,
             has_movements=month.count > 0 or len(recent) > 0,
             card_debt=balance.card_debt,
+            personal_debt=debts.i_owe,
             income=month.income_total,
             has_cap=cap is not None,
+            has_goal=goal is not None,
         )
 
         return HomeOverviewOutputDTO(
@@ -122,6 +132,8 @@ class GetHomeOverviewUseCase:
                 else PaceDTO(daily_average=pace.daily_average, projected=pace.projected)
             ),
             budget=None if cap is None else BudgetDTO.from_view(cap),
+            debts=DebtsDTO.from_view(debts),
+            goal=None if goal is None else GoalDTO.from_view(goal),
             top_categories=_top_categories(month),
             recent=[RecentMovementDTO.from_view(view) for view in recent],
             upcoming=[UpcomingChargeDTO.from_view(view) for view in upcoming],

@@ -25,8 +25,10 @@ def choose(
     objective: str | None,
     has_movements: bool,
     card_debt: int,
+    personal_debt: int,
     income: int,
     has_cap: bool,
+    has_goal: bool,
 ) -> Focus:
     """The rung Home shows. `invite` means "the objective's data is missing".
 
@@ -43,12 +45,17 @@ def choose(
         return "start"
 
     if objective == OBJECTIVE_DEBT:
-        return "debt" if card_debt > 0 else "invite"
+        # Either kind of debt answers the objective: what the cards hold or what is
+        # owed to people. Only when both are zero is there nothing to show — and
+        # `invite` asks for it instead of papering over with a generic number.
+        return "debt" if card_debt > 0 or personal_debt > 0 else "invite"
 
     if objective == OBJECTIVE_SAVING:
         # Saving is `income - spent`; without income registered that subtraction is
-        # just the spending with a minus sign in front of it.
-        return "saving" if income > 0 else "invite"
+        # just the spending with a minus sign in front of it. A pocket is the other
+        # thing worth showing: money set aside toward a goal answers the objective
+        # even before the first salary lands.
+        return "saving" if income > 0 or has_goal else "invite"
 
     if has_cap:
         return "budget"

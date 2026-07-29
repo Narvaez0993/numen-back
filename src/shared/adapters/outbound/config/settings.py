@@ -53,10 +53,28 @@ class Settings(BaseSettings):
     credit_cards_free_limit: int = 1
     # Watched categories. The global cap is not here: every user has exactly one.
     budget_categories_free_limit: int = 2
+    # Open pockets at once; archived goals never count.
+    goals_active_free_limit: int = 1
 
     # AI providers
     anthropic_api_key: str = ""
     openai_api_key: str = ""
+
+    # Assistant — model + pricing (USD per MTok; revisit when intro pricing ends)
+    anthropic_model: str = "claude-sonnet-5"
+    anthropic_max_tokens: int = 4096
+    anthropic_effort: str = "low"
+    anthropic_input_usd_per_mtok: float = 3.0
+    anthropic_output_usd_per_mtok: float = 15.0
+    # Assistant — the two flat counters (docs 02 §10) and the chat loop bounds
+    assistant_registrations_free_limit: int = 60
+    assistant_registrations_plus_limit: int = 300
+    assistant_messages_free_limit: int = 10
+    assistant_messages_plus_limit: int = 300
+    # Messages served past the limit before the hard gate (the nudge window).
+    assistant_message_grace: int = 3
+    assistant_history_window: int = 24
+    assistant_max_tool_iterations: int = 6
 
     # Storage (Cloudflare R2 — S3-compatible)
     r2_endpoint: str = ""

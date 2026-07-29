@@ -51,6 +51,8 @@ class CallerContext:
     currency: str
     objective: str | None
     """What the user is here for; Home leads with the figure that serves it."""
+    language: str = "es"
+    """The language the assistant speaks back in; UI copy lives on the client."""
 
 
 async def get_caller(
@@ -72,4 +74,5 @@ async def get_caller(
         tier=user.tier,
         currency=user.preferences.currency,
         objective=user.preferences.objective,
+        language=user.preferences.language,
     )
