@@ -5,13 +5,21 @@ from pydantic import BaseModel, Field
 
 from src.modules.assistant.application.dto.blocks import ApiBlock
 from src.modules.assistant.application.dto.insights import InsightDTO
+from src.modules.assistant.application.dto.outputs import AgentOutputDTO
 
 # The block union is imported, not re-declared: it IS the contract, and a
 # hand-copied twin here is exactly the kind of drift blocks.py exists to kill.
+# Same story for insights and agent outputs below.
 
 
 class FeedResponse(BaseModel):
     insights: list[InsightDTO]
+    outputs: list[AgentOutputDTO]
+    unseen_count: int
+
+
+class OutputsListResponse(BaseModel):
+    outputs: list[AgentOutputDTO]
 
 
 class DismissInsightRequest(BaseModel):

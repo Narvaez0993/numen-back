@@ -108,9 +108,13 @@ from src.modules.assistant.application.use_cases.compose_monthly_summary import 
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
+from src.modules.assistant.application.use_cases.dismiss_output import DismissOutputUseCase
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
 from src.modules.assistant.application.use_cases.get_feed import GetAssistantFeedUseCase
+from src.modules.assistant.application.use_cases.get_output import GetOutputUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase
+from src.modules.assistant.application.use_cases.list_outputs import ListOutputsUseCase
+from src.modules.assistant.application.use_cases.mark_output_read import MarkOutputReadUseCase
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.run_monthly_summaries import (
     RunMonthlySummariesUseCase,
@@ -529,6 +533,10 @@ class Container:
     dismiss_insight_use_case: DismissInsightUseCase
     compose_monthly_summary_use_case: ComposeMonthlySummaryUseCase
     run_monthly_summaries_use_case: RunMonthlySummariesUseCase
+    list_outputs_use_case: ListOutputsUseCase
+    get_output_use_case: GetOutputUseCase
+    mark_output_read_use_case: MarkOutputReadUseCase
+    dismiss_output_use_case: DismissOutputUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -1089,6 +1097,7 @@ def build_container(settings: Settings | None = None) -> Container:
             movements_reader=assistant_movements_reader,
             categories_reader=assistant_categories_reader,
             dismissals=assistant_insight_dismissals,
+            outputs=assistant_agent_outputs,
         ),
         dismiss_insight_use_case=DismissInsightUseCase(
             dismissals=assistant_insight_dismissals,
@@ -1097,6 +1106,16 @@ def build_container(settings: Settings | None = None) -> Container:
         run_monthly_summaries_use_case=RunMonthlySummariesUseCase(
             users_reader=assistant_users_reader,
             compose=compose_monthly_summary_use_case,
+            clock=clock,
+        ),
+        list_outputs_use_case=ListOutputsUseCase(outputs=assistant_agent_outputs),
+        get_output_use_case=GetOutputUseCase(outputs=assistant_agent_outputs),
+        mark_output_read_use_case=MarkOutputReadUseCase(
+            outputs=assistant_agent_outputs,
+            clock=clock,
+        ),
+        dismiss_output_use_case=DismissOutputUseCase(
+            outputs=assistant_agent_outputs,
             clock=clock,
         ),
         get_home_overview_use_case=GetHomeOverviewUseCase(

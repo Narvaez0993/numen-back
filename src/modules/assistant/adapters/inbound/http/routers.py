@@ -9,6 +9,7 @@ from src.modules.assistant.adapters.inbound.http.schemas import (
     DiscardDraftResponse,
     DismissInsightRequest,
     FeedResponse,
+    OutputsListResponse,
     ParseRequest,
     ParseResponse,
     UsageResponse,
@@ -18,6 +19,7 @@ from src.modules.assistant.application.dto.draft_commands import (
     ConfirmDraftInputDTO,
     DiscardDraftInputDTO,
 )
+from src.modules.assistant.application.dto.outputs import AgentOutputDTO
 from src.modules.assistant.application.dto.parse import ParseCaptureInputDTO
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
@@ -25,12 +27,28 @@ from src.modules.assistant.application.use_cases.dismiss_insight import (
     DismissInsightInputDTO,
     DismissInsightUseCase,
 )
+from src.modules.assistant.application.use_cases.dismiss_output import (
+    DismissOutputInputDTO,
+    DismissOutputUseCase,
+)
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
 from src.modules.assistant.application.use_cases.get_feed import (
     FeedInputDTO,
     GetAssistantFeedUseCase,
 )
+from src.modules.assistant.application.use_cases.get_output import (
+    GetOutputInputDTO,
+    GetOutputUseCase,
+)
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase, UsageInputDTO
+from src.modules.assistant.application.use_cases.list_outputs import (
+    ListOutputsInputDTO,
+    ListOutputsUseCase,
+)
+from src.modules.assistant.application.use_cases.mark_output_read import (
+    MarkOutputReadInputDTO,
+    MarkOutputReadUseCase,
+)
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.shared.adapters.inbound.http.dependencies import CallerContext, get_caller
@@ -55,6 +73,30 @@ def _depends_dismiss_insight() -> DismissInsightUseCase:
     from src.core.di.container import get_container
 
     return get_container().dismiss_insight_use_case
+
+
+def _depends_list_outputs() -> ListOutputsUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().list_outputs_use_case
+
+
+def _depends_get_output() -> GetOutputUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().get_output_use_case
+
+
+def _depends_mark_output_read() -> MarkOutputReadUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().mark_output_read_use_case
+
+
+def _depends_dismiss_output() -> DismissOutputUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().dismiss_output_use_case
 
 
 def _depends_parse() -> ParseCaptureUseCase:
@@ -199,6 +241,50 @@ async def dismiss_insight(
     use_case: DismissInsightUseCase = Depends(_depends_dismiss_insight),
 ) -> None:
     await use_case.execute(DismissInsightInputDTO(user_id=caller.user_id, key=body.key))
+
+
+@router.get("/outputs", response_model=OutputsListResponse)
+async def list_outputs(
+    kind: str = Query(default="monthly_summary", pattern="^(monthly_summary|weekly_review)$"),
+    limit: int = Query(default=24, ge=1, le=48),
+    caller: CallerContext = Depends(get_caller),
+    use_case: ListOutputsUseCase = Depends(_depends_list_outputs),
+) -> OutputsListResponse:
+    output = await use_case.execute(
+        ListOutputsInputDTO(user_id=caller.user_id, kind=kind, limit=limit)
+    )
+    return OutputsListResponse(**output.model_dump())
+
+
+@router.get("/outputs/{output_id}", response_model=AgentOutputDTO)
+async def get_output(
+    output_id: str,
+    caller: CallerContext = Depends(get_caller),
+    use_case: GetOutputUseCase = Depends(_depends_get_output),
+) -> AgentOutputDTO:
+    return await use_case.execute(GetOutputInputDTO(user_id=caller.user_id, output_id=output_id))
+
+
+@router.post("/outputs/{output_id}/read", response_model=AgentOutputDTO)
+async def mark_output_read(
+    output_id: str,
+    caller: CallerContext = Depends(get_caller),
+    use_case: MarkOutputReadUseCase = Depends(_depends_mark_output_read),
+) -> AgentOutputDTO:
+    return await use_case.execute(
+        MarkOutputReadInputDTO(user_id=caller.user_id, output_id=output_id)
+    )
+
+
+@router.post("/outputs/{output_id}/dismiss", response_model=AgentOutputDTO)
+async def dismiss_output(
+    output_id: str,
+    caller: CallerContext = Depends(get_caller),
+    use_case: DismissOutputUseCase = Depends(_depends_dismiss_output),
+) -> AgentOutputDTO:
+    return await use_case.execute(
+        DismissOutputInputDTO(user_id=caller.user_id, output_id=output_id)
+    )
 
 
 @router.get("/usage", response_model=UsageResponse)

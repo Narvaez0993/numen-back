@@ -26,7 +26,13 @@ from src.modules.assistant.application.use_cases.get_feed import (
     GetAssistantFeedUseCase,
 )
 
-from .fakes import CURRENCY, TODAY, USER_ID, FakeCategoriesReader
+from .fakes import (
+    CURRENCY,
+    TODAY,
+    USER_ID,
+    FakeAgentOutputRepository,
+    FakeCategoriesReader,
+)
 
 
 def cap(id: str = "b-1", target: int = 100, spent: int = 85, over: int | None = None) -> CapView:
@@ -121,6 +127,7 @@ def use_case(
     charges: tuple[UpcomingChargeView, ...] = (),
     by_category: tuple[CategorySpendView, ...] = (),
     dismissed: set[str] | None = None,
+    outputs: FakeAgentOutputRepository | None = None,
 ) -> tuple[GetAssistantFeedUseCase, StubSubscriptions]:
     subs = StubSubscriptions(charges)
     case = GetAssistantFeedUseCase(
@@ -131,6 +138,7 @@ def use_case(
         movements_reader=StubMovements(by_category),
         categories_reader=FakeCategoriesReader(),
         dismissals=FakeDismissals(dismissed),
+        outputs=outputs or FakeAgentOutputRepository(),
     )
     return case, subs
 

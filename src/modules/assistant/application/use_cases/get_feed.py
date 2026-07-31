@@ -19,17 +19,27 @@ from src.modules.assistant.application.dto.insights import (
     UncategorizedInsight,
     UpcomingChargeInsight,
 )
+from src.modules.assistant.application.dto.outputs import AgentOutputDTO
+from src.modules.assistant.application.ports.agent_output_repository import (
+    AgentOutputRepository,
+)
 from src.modules.assistant.application.ports.budgets_reader import BudgetsReader
 from src.modules.assistant.application.ports.categories_reader import CategoriesReader
 from src.modules.assistant.application.ports.insight_dismissals import InsightDismissals
 from src.modules.assistant.application.ports.movements_reader import MovementsReader
 from src.modules.assistant.application.ports.subscriptions_reader import SubscriptionsReader
+from src.modules.assistant.domain.entities.agent_output import (
+    MONTHLY_SUMMARY,
+    WEEKLY_REVIEW,
+    AgentOutput,
+)
 from src.shared.domain.period import MonthPeriod
 
 CAP_ALERT_USED: Final[float] = 0.8
 UPCOMING_DAYS: Final[int] = 2
 UNCATEGORIZED_MIN: Final[int] = 3
 UPCOMING_LIMIT: Final[int] = 10
+WEEKLY_FEED_DAYS: Final[int] = 14
 
 
 class FeedInputDTO(BaseModel):
@@ -40,6 +50,8 @@ class FeedInputDTO(BaseModel):
 
 class FeedDTO(BaseModel):
     insights: list[InsightDTO]
+    outputs: list[AgentOutputDTO]
+    unseen_count: int
 
 
 @dataclass
@@ -49,6 +61,7 @@ class GetAssistantFeedUseCase:
     movements_reader: MovementsReader
     categories_reader: CategoriesReader
     dismissals: InsightDismissals
+    outputs: AgentOutputRepository
 
     async def execute(self, input_dto: FeedInputDTO) -> FeedDTO:
         insights = [
@@ -56,12 +69,33 @@ class GetAssistantFeedUseCase:
             *await self._upcoming_charges(input_dto),
             *await self._uncategorized(input_dto),
         ]
-        if not insights:
-            return FeedDTO(insights=[])
-        dismissed = await self.dismissals.dismissed_among(
-            input_dto.user_id, [insight.key for insight in insights]
+        if insights:
+            dismissed = await self.dismissals.dismissed_among(
+                input_dto.user_id, [insight.key for insight in insights]
+            )
+            insights = [i for i in insights if i.key not in dismissed]
+        outputs = await self._current_outputs(input_dto)
+        return FeedDTO(
+            insights=insights,
+            outputs=[AgentOutputDTO.from_domain(o) for o in outputs],
+            unseen_count=sum(1 for o in outputs if o.read_at is None),
         )
-        return FeedDTO(insights=[i for i in insights if i.key not in dismissed])
+
+    async def _current_outputs(self, input_dto: FeedInputDTO) -> list[AgentOutput]:
+        """The vigentes: the latest Corte (it reigns until the next one lands)
+        and a weekly review while it is still this-week news. Dismissed ones
+        leave the feed but never the shelf."""
+        current: list[AgentOutput] = []
+        monthly = await self.outputs.latest(input_dto.user_id, MONTHLY_SUMMARY, 1)
+        if monthly and monthly[0].dismissed_at is None:
+            current.append(monthly[0])
+        weekly = await self.outputs.latest(input_dto.user_id, WEEKLY_REVIEW, 1)
+        if weekly and weekly[0].dismissed_at is None:
+            today = date.fromisoformat(input_dto.today)
+            age = (today - weekly[0].created_at.date()).days
+            if age <= WEEKLY_FEED_DAYS:
+                current.append(weekly[0])
+        return current
 
     async def _cap_alerts(self, input_dto: FeedInputDTO) -> list[InsightDTO]:
         snapshot = await self.budgets_reader.snapshot(
