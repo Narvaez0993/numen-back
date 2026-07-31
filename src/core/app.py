@@ -23,6 +23,9 @@ from src.modules.assistant.adapters.inbound.http.routers import (
 from src.modules.assistant.adapters.outbound.persistence.documents.action_log_document import (
     AIActionLogDocument,
 )
+from src.modules.assistant.adapters.outbound.persistence.documents.agent_output_document import (
+    AgentOutputDocument,
+)
 from src.modules.assistant.adapters.outbound.persistence.documents.chat_message_document import (
     ChatMessageDocument,
 )
@@ -124,6 +127,7 @@ _DOCUMENTS = [
     AIUsageCounterDocument,
     AIActionLogDocument,
     InsightDismissalDocument,
+    AgentOutputDocument,
 ]
 
 

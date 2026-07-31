@@ -7,6 +7,7 @@ exactly what the real model does with a tool result.
 
 import json
 from collections.abc import Awaitable, Callable, Sequence
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID, uuid4
@@ -24,6 +25,9 @@ from src.modules.assistant.application.ports.agent_model import (
     TokenUsage,
     ToolCall,
     ToolSpec,
+)
+from src.modules.assistant.application.ports.agent_output_repository import (
+    AgentOutputAlreadyExistsError,
 )
 from src.modules.assistant.application.ports.budgets_reader import BudgetsView
 from src.modules.assistant.application.ports.categories_reader import CategoryView
@@ -43,6 +47,12 @@ from src.modules.assistant.application.ports.subscriptions_reader import (
 from src.modules.assistant.application.ports.usage_counters import UsageView
 from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
 from src.modules.assistant.application.services.tool_registry import ToolRegistry
+from src.modules.assistant.domain.entities.agent_output import (
+    MONTHLY_SUMMARY,
+    PLAY_PROPOSED,
+    AgentOutput,
+    Play,
+)
 from src.modules.assistant.domain.entities.movement_draft import MovementDraft
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -346,6 +356,121 @@ def stored_message(role: str = "user", text: str = "hola") -> StoredChatMessage:
         client_message_id=None,
         created_at=datetime(2026, 7, 28, 11, 0, 0, tzinfo=UTC),
     )
+
+
+class FakeAgentOutputRepository:
+    """In-memory `AgentOutputRepository` honoring the conditional-write semantics:
+    a transition whose `from_status` no longer holds returns None, like Mongo."""
+
+    def __init__(self) -> None:
+        self.outputs: dict[str, AgentOutput] = {}
+
+    async def add(self, output: AgentOutput) -> None:
+        duplicate = any(
+            o.user_id == output.user_id and o.kind == output.kind and o.period == output.period
+            for o in self.outputs.values()
+        )
+        if duplicate:
+            raise AgentOutputAlreadyExistsError()
+        self.outputs[output.id] = output
+
+    async def find(self, user_id: UUID, output_id: str) -> AgentOutput | None:
+        found = self.outputs.get(output_id)
+        return found if found and found.user_id == user_id else None
+
+    async def find_by_period(self, user_id: UUID, kind: str, period: str) -> AgentOutput | None:
+        return next(
+            (
+                o
+                for o in self.outputs.values()
+                if o.user_id == user_id and o.kind == kind and o.period == period
+            ),
+            None,
+        )
+
+    async def latest(self, user_id: UUID, kind: str, limit: int) -> tuple[AgentOutput, ...]:
+        mine = [o for o in self.outputs.values() if o.user_id == user_id and o.kind == kind]
+        mine.sort(key=lambda o: o.created_at, reverse=True)
+        return tuple(mine[:limit])
+
+    async def mark_read(self, user_id: UUID, output_id: str, at: datetime) -> AgentOutput | None:
+        found = await self.find(user_id, output_id)
+        if found is None:
+            return None
+        if found.read_at is None:
+            found = replace(found, read_at=at)
+            self.outputs[output_id] = found
+        return found
+
+    async def dismiss(self, user_id: UUID, output_id: str, at: datetime) -> AgentOutput | None:
+        found = await self.find(user_id, output_id)
+        if found is None:
+            return None
+        if found.dismissed_at is None:
+            found = replace(found, dismissed_at=at)
+            self.outputs[output_id] = found
+        return found
+
+    async def transition_play(
+        self,
+        user_id: UUID,
+        output_id: str,
+        play_id: str,
+        *,
+        from_status: str,
+        to_status: str,
+        result_id: str | None = None,
+        failure_code: str | None = None,
+        applied_at: datetime | None = None,
+    ) -> AgentOutput | None:
+        found = await self.find(user_id, output_id)
+        if found is None:
+            return None
+        target = found.play(play_id)
+        if target is None or target.status != from_status:
+            return None
+        moved = replace(
+            target,
+            status=to_status,
+            result_id=result_id if result_id is not None else target.result_id,
+            failure_code=failure_code if failure_code is not None else target.failure_code,
+            applied_at=applied_at if applied_at is not None else target.applied_at,
+        )
+        plays = tuple(moved if p.id == play_id else p for p in found.plays)
+        updated = replace(found, plays=plays)
+        self.outputs[output_id] = updated
+        return updated
+
+
+def play(**overrides: Any) -> Play:
+    base: dict[str, Any] = {
+        "id": "play-1",
+        "action": "set_category_cap",
+        "params": {"category_id": CATEGORY_ID, "category_name": "Comida", "target": 400_000},
+        "text": "Ponle un techo de $400.000 a comida",
+        "status": PLAY_PROPOSED,
+        "result_id": None,
+        "failure_code": None,
+        "applied_at": None,
+    }
+    base.update(overrides)
+    return Play(**base)
+
+
+def agent_output(**overrides: Any) -> AgentOutput:
+    base: dict[str, Any] = {
+        "id": str(uuid4()),
+        "user_id": USER_ID,
+        "kind": MONTHLY_SUMMARY,
+        "period": "2026-07",
+        "payload": {"slides": []},
+        "plays": (play(),),
+        "created_at": datetime(2026, 8, 1, 6, 0, 0, tzinfo=UTC),
+        "read_at": None,
+        "dismissed_at": None,
+    }
+    base.update(overrides)
+    return AgentOutput(**base)
 
 
 ZERO = ZERO_USAGE
