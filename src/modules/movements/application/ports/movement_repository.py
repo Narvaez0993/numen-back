@@ -56,6 +56,16 @@ class GoalFunds:
 
 
 @dataclass(frozen=True)
+class DaySpend:
+    """Expenses of one calendar day. Only days with movements appear —
+    the reader decides whether an absent day means zero or "not yet"."""
+
+    day: str
+    spent: int
+    count: int
+
+
+@dataclass(frozen=True)
 class MerchantSpend:
     """Expenses of a date range grouped by **what the user typed**.
 
@@ -89,6 +99,10 @@ class MovementRepository(Protocol):
         self, user_id: UUID, date_from: str, date_to: str
     ) -> list[CategorySpend]:
         """Expenses grouped by category, biggest first."""
+        ...
+
+    async def spend_by_day(self, user_id: UUID, date_from: str, date_to: str) -> list[DaySpend]:
+        """Expenses grouped by day, chronological. Days without spending are absent."""
         ...
 
     async def top_merchants(

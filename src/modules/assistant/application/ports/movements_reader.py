@@ -37,6 +37,13 @@ class MerchantView:
     count: int
 
 
+@dataclass(frozen=True)
+class DaySpendView:
+    day: str
+    spent: int
+    count: int
+
+
 class MovementsReader(Protocol):
     """One port, three questions to the same source — like overview's reader."""
 
@@ -47,3 +54,9 @@ class MovementsReader(Protocol):
     async def top_merchants(
         self, user_id: UUID, date_from: str, date_to: str, limit: int
     ) -> tuple[MerchantView, ...]: ...
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
+        """Chronological; days without spending are absent."""
+        ...

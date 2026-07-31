@@ -253,6 +253,9 @@ from src.modules.movements.application.services.movement_references import (
 )
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
+from src.modules.movements.application.use_cases.get_daily_spend import (
+    GetDailySpendUseCase,
+)
 from src.modules.movements.application.use_cases.get_goal_funds import (
     GetGoalFundsUseCase,
 )
@@ -418,6 +421,7 @@ class Container:
     delete_movement_use_case: DeleteMovementUseCase
     summarize_movements_use_case: SummarizeMovementsUseCase
     get_top_merchants_use_case: GetTopMerchantsUseCase
+    get_daily_spend_use_case: GetDailySpendUseCase
     get_goal_funds_use_case: GetGoalFundsUseCase
 
     # Budgets
@@ -563,6 +567,9 @@ def build_container(settings: Settings | None = None) -> Container:
     get_top_merchants_use_case = GetTopMerchantsUseCase(
         movement_repository=movement_repository,
     )
+    get_daily_spend_use_case = GetDailySpendUseCase(
+        movement_repository=movement_repository,
+    )
     get_goal_funds_use_case = GetGoalFundsUseCase(
         movement_repository=movement_repository,
     )
@@ -697,6 +704,7 @@ def build_container(settings: Settings | None = None) -> Container:
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
         get_top_merchants=get_top_merchants_use_case,
+        get_daily_spend=get_daily_spend_use_case,
     )
     assistant_budgets_reader: AssistantBudgetsReader = BudgetsBudgetsReader(
         get_budgets_snapshot=get_budgets_snapshot_use_case,
@@ -868,6 +876,7 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         summarize_movements_use_case=summarize_movements_use_case,
         get_top_merchants_use_case=get_top_merchants_use_case,
+        get_daily_spend_use_case=get_daily_spend_use_case,
         get_goal_funds_use_case=get_goal_funds_use_case,
         budget_repository=budget_repository,
         budget_spend_reader=budget_spend_reader,

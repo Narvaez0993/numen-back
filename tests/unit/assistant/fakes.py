@@ -36,6 +36,7 @@ from src.modules.assistant.application.ports.debts_reader import DebtsView
 from src.modules.assistant.application.ports.goals_reader import GoalView
 from src.modules.assistant.application.ports.movement_recorder import RecordedMovement
 from src.modules.assistant.application.ports.movements_reader import (
+    DaySpendView,
     MerchantView,
     MovementView,
     PeriodSummaryView,
@@ -279,6 +280,11 @@ class FakeMovementsReader:
     async def top_merchants(
         self, user_id: UUID, date_from: str, date_to: str, limit: int
     ) -> tuple[MerchantView, ...]:
+        return ()
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
         return ()
 
 

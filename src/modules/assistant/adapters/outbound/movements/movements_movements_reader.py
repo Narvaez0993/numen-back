@@ -3,13 +3,16 @@ from uuid import UUID
 
 from src.modules.assistant.application.ports.movements_reader import (
     CategorySpendView,
+    DaySpendView,
     MerchantView,
     MovementView,
     PeriodSummaryView,
 )
+from src.modules.movements.application.dto.daily_spend import DailySpendInputDTO
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
 from src.modules.movements.application.dto.movement_summary import SummarizeMovementsInputDTO
 from src.modules.movements.application.dto.top_merchants import TopMerchantsInputDTO
+from src.modules.movements.application.use_cases.get_daily_spend import GetDailySpendUseCase
 from src.modules.movements.application.use_cases.get_top_merchants import GetTopMerchantsUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.modules.movements.application.use_cases.summarize_movements import (
@@ -19,11 +22,12 @@ from src.modules.movements.application.use_cases.summarize_movements import (
 
 @dataclass
 class MovementsMovementsReader:
-    """`MovementsReader` backed by movements — three questions, one source."""
+    """`MovementsReader` backed by movements — four questions, one source."""
 
     summarize_movements: SummarizeMovementsUseCase
     list_movements: ListMovementsUseCase
     get_top_merchants: GetTopMerchantsUseCase
+    get_daily_spend: GetDailySpendUseCase
 
     async def summary(self, user_id: UUID, date_from: str, date_to: str) -> PeriodSummaryView:
         output = await self.summarize_movements.execute(
@@ -66,3 +70,11 @@ class MovementsMovementsReader:
         return tuple(
             MerchantView(label=m.label, spent=m.spent, count=m.count) for m in output.merchants
         )
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
+        output = await self.get_daily_spend.execute(
+            DailySpendInputDTO(user_id=user_id, date_from=date_from, date_to=date_to)
+        )
+        return tuple(DaySpendView(day=d.day, spent=d.spent, count=d.count) for d in output.days)
