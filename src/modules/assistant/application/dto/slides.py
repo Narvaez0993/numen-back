@@ -87,8 +87,8 @@ class GoalSlide(BaseModel):
     saved: int
     target: int
     pct: float
-    contributed: int
-    """What went into the pocket during THIS month."""
+    needed_per_month: int | None
+    """Goals' own pace math (per month to land on the date); None without a date."""
     text: str = Field(max_length=MAX_SLIDE_TEXT)
 
 

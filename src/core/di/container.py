@@ -30,6 +30,7 @@ from src.modules.assistant.adapters.outbound.accounts.accounts_accounts_reader i
     AccountsAccountsReader,
 )
 from src.modules.assistant.adapters.outbound.ai.anthropic_agent_model import AnthropicAgentModel
+from src.modules.assistant.adapters.outbound.auth.auth_users_reader import AuthUsersReader
 from src.modules.assistant.adapters.outbound.budgets.budgets_budgets_reader import (
     BudgetsBudgetsReader,
 )
@@ -46,6 +47,9 @@ from src.modules.assistant.adapters.outbound.movements.movements_movements_reade
 )
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_action_log import (
     MongoAIActionLog,
+)
+from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_agent_outputs import (
+    MongoAgentOutputs,
 )
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_chat_messages import (
     MongoChatMessageRepository,
@@ -67,6 +71,9 @@ from src.modules.assistant.application.ports.accounts_reader import (
 )
 from src.modules.assistant.application.ports.action_log import ActionLog
 from src.modules.assistant.application.ports.agent_model import AgentModel
+from src.modules.assistant.application.ports.agent_output_repository import (
+    AgentOutputRepository,
+)
 from src.modules.assistant.application.ports.budgets_reader import (
     BudgetsReader as AssistantBudgetsReader,
 )
@@ -92,8 +99,12 @@ from src.modules.assistant.application.ports.subscriptions_reader import (
     SubscriptionsReader as AssistantSubscriptionsReader,
 )
 from src.modules.assistant.application.ports.usage_counters import UsageCounters
+from src.modules.assistant.application.ports.users_reader import UsersReader
 from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
 from src.modules.assistant.application.services.tool_registry import ToolRegistry
+from src.modules.assistant.application.use_cases.compose_monthly_summary import (
+    ComposeMonthlySummaryUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
@@ -101,6 +112,9 @@ from src.modules.assistant.application.use_cases.get_chat_history import GetChat
 from src.modules.assistant.application.use_cases.get_feed import GetAssistantFeedUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
+from src.modules.assistant.application.use_cases.run_monthly_summaries import (
+    RunMonthlySummariesUseCase,
+)
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
 from src.modules.auth.adapters.outbound.crypto.jwt_token_service import JwtTokenService
@@ -492,6 +506,8 @@ class Container:
     movement_draft_repository: DraftRepository
     assistant_usage_counters: UsageCounters
     assistant_insight_dismissals: InsightDismissals
+    assistant_agent_outputs: AgentOutputRepository
+    assistant_users_reader: UsersReader
     assistant_action_log: ActionLog
     assistant_agent_model: AgentModel
     assistant_accounts_reader: AssistantAccountsReader
@@ -511,6 +527,8 @@ class Container:
     get_assistant_usage_use_case: GetUsageUseCase
     get_assistant_feed_use_case: GetAssistantFeedUseCase
     dismiss_insight_use_case: DismissInsightUseCase
+    compose_monthly_summary_use_case: ComposeMonthlySummaryUseCase
+    run_monthly_summaries_use_case: RunMonthlySummariesUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -690,6 +708,8 @@ def build_container(settings: Settings | None = None) -> Container:
     movement_draft_repository: DraftRepository = MongoMovementDraftRepository()
     assistant_usage_counters: UsageCounters = MongoAIUsageCounters()
     assistant_insight_dismissals: InsightDismissals = MongoInsightDismissals()
+    assistant_agent_outputs: AgentOutputRepository = MongoAgentOutputs()
+    assistant_users_reader: UsersReader = AuthUsersReader()
     assistant_action_log: ActionLog = MongoAIActionLog()
     assistant_agent_model: AgentModel = AnthropicAgentModel(
         api_key=settings.anthropic_api_key,
@@ -744,6 +764,20 @@ def build_container(settings: Settings | None = None) -> Container:
     assistant_pricing = ModelPricing(
         input_usd_per_mtok=settings.anthropic_input_usd_per_mtok,
         output_usd_per_mtok=settings.anthropic_output_usd_per_mtok,
+    )
+
+    compose_monthly_summary_use_case = ComposeMonthlySummaryUseCase(
+        outputs=assistant_agent_outputs,
+        movements_reader=assistant_movements_reader,
+        budgets_reader=assistant_budgets_reader,
+        goals_reader=assistant_goals_reader,
+        categories_reader=assistant_categories_reader,
+        agent_model=assistant_agent_model,
+        action_log=assistant_action_log,
+        clock=clock,
+        pricing=assistant_pricing,
+        model_name=settings.anthropic_model,
+        category_caps_free_limit=settings.budget_categories_free_limit,
     )
 
     session_issuer = SessionIssuer(
@@ -992,6 +1026,8 @@ def build_container(settings: Settings | None = None) -> Container:
         movement_draft_repository=movement_draft_repository,
         assistant_usage_counters=assistant_usage_counters,
         assistant_insight_dismissals=assistant_insight_dismissals,
+        assistant_agent_outputs=assistant_agent_outputs,
+        assistant_users_reader=assistant_users_reader,
         assistant_action_log=assistant_action_log,
         assistant_agent_model=assistant_agent_model,
         assistant_accounts_reader=assistant_accounts_reader,
@@ -1056,6 +1092,12 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         dismiss_insight_use_case=DismissInsightUseCase(
             dismissals=assistant_insight_dismissals,
+        ),
+        compose_monthly_summary_use_case=compose_monthly_summary_use_case,
+        run_monthly_summaries_use_case=RunMonthlySummariesUseCase(
+            users_reader=assistant_users_reader,
+            compose=compose_monthly_summary_use_case,
+            clock=clock,
         ),
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,
