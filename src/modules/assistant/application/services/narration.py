@@ -15,6 +15,7 @@ from typing import Any, Final
 from src.modules.assistant.application.services.narration_tools import MAX_NARRATION_TEXT
 
 MONTHLY = "monthly_summary"
+WEEKLY = "weekly_review"
 
 _SYSTEM_MONTHLY_ES: Final[str] = """\
 Eres la voz de Deshka narrando El Corte: el resumen del mes de un usuario, contado en \
@@ -44,13 +45,46 @@ screen already shows the numbers big; your line accompanies them, it does not re
 - Cover every item_id you receive, exactly once.\
 """
 
+_SYSTEM_WEEKLY_ES: Final[str] = """\
+Eres el coach financiero de Deshka escribiendo la revisión semanal de un usuario. Recibes \
+el diagnóstico ya calculado (totales, comparación, categoría top, jugadas propuestas) y tu \
+ÚNICA salida es la herramienta narrate, con una línea por item_id.
+
+REGLAS:
+- JAMÁS escribas cifras: ni montos, ni porcentajes, ni conteos. La tarjeta ya muestra los \
+números; tu línea interpreta y acompaña.
+- Sí puedes nombrar categorías, comercios y metas.
+- El diagnóstico es honesto y accionable: si la semana fue dura, dilo sin culpa y apunta a \
+la jugada; si fue buena, reconócelo sin inflar.
+- Una sola frase por item, máximo 180 caracteres, en español de tú, sin emojis.
+- Cubre todos los item_id que recibas, exactamente una vez.\
+"""
+
+_SYSTEM_WEEKLY_EN: Final[str] = """\
+You are Deshka's financial coach writing a user's weekly review. You receive the \
+already-computed diagnosis (totals, comparison, top category, proposed plays) and your \
+ONLY output is the narrate tool, one line per item_id.
+
+RULES:
+- NEVER write figures: no amounts, no percentages, no counts. The card already shows the \
+numbers; your line interprets and accompanies.
+- You may name categories, merchants and goals.
+- The diagnosis is honest and actionable: a rough week is said without guilt and points \
+to the play; a good week is acknowledged without inflation.
+- One sentence per item, 180 characters max, no emojis.
+- Cover every item_id you receive, exactly once.\
+"""
+
 _SYSTEMS: Final[Mapping[tuple[str, str], str]] = {
     (MONTHLY, "es"): _SYSTEM_MONTHLY_ES,
     (MONTHLY, "en"): _SYSTEM_MONTHLY_EN,
+    (WEEKLY, "es"): _SYSTEM_WEEKLY_ES,
+    (WEEKLY, "en"): _SYSTEM_WEEKLY_EN,
 }
 
 _FALLBACKS_ES: Final[Mapping[str, str]] = {
     "cover": "Tu mes, en corto.",
+    "weekly_diagnosis": "Tu semana, leída por tu agente.",
     "big_number": "Así se movió tu plata este mes.",
     "category_bars": "Aquí es donde más se fue.",
     "fun_fact": "Hubo un día que se llevó el show.",
@@ -67,6 +101,7 @@ _FALLBACKS_ES: Final[Mapping[str, str]] = {
 
 _FALLBACKS_EN: Final[Mapping[str, str]] = {
     "cover": "Your month, in short.",
+    "weekly_diagnosis": "Your week, read by your agent.",
     "big_number": "This is how your money moved this month.",
     "category_bars": "This is where most of it went.",
     "fun_fact": "One day stole the show.",
@@ -94,7 +129,7 @@ class NarrationItem:
 
 def narration_system_for(language: str, kind: str = MONTHLY) -> str:
     """Static per (kind, language) — the cacheable prefix of the whole sweep."""
-    return _SYSTEMS.get((kind, language), _SYSTEMS[(kind, "es")])
+    return _SYSTEMS.get((kind, language)) or _SYSTEMS[(kind, "es")]
 
 
 def narration_request(items: Sequence[NarrationItem]) -> str:

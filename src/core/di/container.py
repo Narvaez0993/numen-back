@@ -114,6 +114,9 @@ from src.modules.assistant.application.use_cases.apply_play import ApplyPlayUseC
 from src.modules.assistant.application.use_cases.compose_monthly_summary import (
     ComposeMonthlySummaryUseCase,
 )
+from src.modules.assistant.application.use_cases.compose_weekly_review import (
+    ComposeWeeklyReviewUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
@@ -127,6 +130,9 @@ from src.modules.assistant.application.use_cases.mark_output_read import MarkOut
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.run_monthly_summaries import (
     RunMonthlySummariesUseCase,
+)
+from src.modules.assistant.application.use_cases.run_weekly_reviews import (
+    RunWeeklyReviewsUseCase,
 )
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
@@ -544,6 +550,8 @@ class Container:
     dismiss_insight_use_case: DismissInsightUseCase
     compose_monthly_summary_use_case: ComposeMonthlySummaryUseCase
     run_monthly_summaries_use_case: RunMonthlySummariesUseCase
+    compose_weekly_review_use_case: ComposeWeeklyReviewUseCase
+    run_weekly_reviews_use_case: RunWeeklyReviewsUseCase
     apply_play_use_case: ApplyPlayUseCase
     list_outputs_use_case: ListOutputsUseCase
     get_output_use_case: GetOutputUseCase
@@ -817,6 +825,21 @@ def build_container(settings: Settings | None = None) -> Container:
         pricing=assistant_pricing,
         model_name=settings.anthropic_model,
         category_caps_free_limit=settings.budget_categories_free_limit,
+    )
+
+    compose_weekly_review_use_case = ComposeWeeklyReviewUseCase(
+        outputs=assistant_agent_outputs,
+        movements_reader=assistant_movements_reader,
+        budgets_reader=assistant_budgets_reader,
+        goals_reader=assistant_goals_reader,
+        categories_reader=assistant_categories_reader,
+        subscriptions_reader=assistant_subscriptions_reader,
+        agent_model=assistant_agent_model,
+        action_log=assistant_action_log,
+        clock=clock,
+        pricing=assistant_pricing,
+        model_name=settings.anthropic_model,
+        treat_slack_fraction=settings.assistant_treat_slack_fraction,
     )
 
     session_issuer = SessionIssuer(
@@ -1138,6 +1161,13 @@ def build_container(settings: Settings | None = None) -> Container:
             budget_writer=assistant_budget_writer,
             goal_contributor=assistant_goal_contributor,
             clock=clock,
+        ),
+        compose_weekly_review_use_case=compose_weekly_review_use_case,
+        run_weekly_reviews_use_case=RunWeeklyReviewsUseCase(
+            users_reader=assistant_users_reader,
+            compose=compose_weekly_review_use_case,
+            clock=clock,
+            audience=settings.assistant_weekly_review_audience,
         ),
         list_outputs_use_case=ListOutputsUseCase(outputs=assistant_agent_outputs),
         get_output_use_case=GetOutputUseCase(outputs=assistant_agent_outputs),

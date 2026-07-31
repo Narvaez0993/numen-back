@@ -16,6 +16,9 @@ from src.core.documents import ALL_DOCUMENTS
 from src.modules.assistant.adapters.inbound.jobs.run_monthly_summaries import (
     run_monthly_summaries,
 )
+from src.modules.assistant.adapters.inbound.jobs.run_weekly_reviews import (
+    run_weekly_reviews,
+)
 from src.modules.subscriptions.adapters.inbound.jobs.run_subscription_charges import (
     run_subscription_charges,
 )
@@ -51,6 +54,7 @@ class WorkerSettings:
         heartbeat,
         run_subscription_charges,
         run_monthly_summaries,
+        run_weekly_reviews,
     ]
     cron_jobs: ClassVar[list[Any]] = [
         # Hourly: the confirmation window is measured in hours, so this is as
@@ -64,6 +68,15 @@ class WorkerSettings:
             run_monthly_summaries,
             day=1,
             hour=6,
+            minute=0,
+            timeout=1800,
+            run_at_startup=True,
+        ),
+        # Mondays 07:00 UTC: the ISO week just closed everywhere that matters.
+        cron(
+            run_weekly_reviews,
+            weekday="mon",
+            hour=7,
             minute=0,
             timeout=1800,
             run_at_startup=True,
