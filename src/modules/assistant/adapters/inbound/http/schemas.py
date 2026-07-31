@@ -4,9 +4,18 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from src.modules.assistant.application.dto.blocks import ApiBlock
+from src.modules.assistant.application.dto.insights import InsightDTO
 
 # The block union is imported, not re-declared: it IS the contract, and a
 # hand-copied twin here is exactly the kind of drift blocks.py exists to kill.
+
+
+class FeedResponse(BaseModel):
+    insights: list[InsightDTO]
+
+
+class DismissInsightRequest(BaseModel):
+    key: str = Field(min_length=1, max_length=120)
 
 
 class ChatRequest(BaseModel):

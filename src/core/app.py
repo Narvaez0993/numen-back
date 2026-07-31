@@ -26,6 +26,9 @@ from src.modules.assistant.adapters.outbound.persistence.documents.action_log_do
 from src.modules.assistant.adapters.outbound.persistence.documents.chat_message_document import (
     ChatMessageDocument,
 )
+from src.modules.assistant.adapters.outbound.persistence.documents.dismissal_document import (
+    InsightDismissalDocument,
+)
 from src.modules.assistant.adapters.outbound.persistence.documents.movement_draft_document import (
     MovementDraftDocument,
 )
@@ -120,6 +123,7 @@ _DOCUMENTS = [
     MovementDraftDocument,
     AIUsageCounterDocument,
     AIActionLogDocument,
+    InsightDismissalDocument,
 ]
 
 

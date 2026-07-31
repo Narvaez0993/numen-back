@@ -50,6 +50,9 @@ from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_acti
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_chat_messages import (
     MongoChatMessageRepository,
 )
+from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_dismissals import (
+    MongoInsightDismissals,
+)
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_drafts import (
     MongoMovementDraftRepository,
 )
@@ -78,6 +81,7 @@ from src.modules.assistant.application.ports.draft_repository import DraftReposi
 from src.modules.assistant.application.ports.goals_reader import (
     GoalsReader as AssistantGoalsReader,
 )
+from src.modules.assistant.application.ports.insight_dismissals import InsightDismissals
 from src.modules.assistant.application.ports.movement_recorder import (
     MovementRecorder as AssistantMovementRecorder,
 )
@@ -92,7 +96,9 @@ from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
 from src.modules.assistant.application.services.tool_registry import ToolRegistry
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
+from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
+from src.modules.assistant.application.use_cases.get_feed import GetAssistantFeedUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
@@ -481,6 +487,7 @@ class Container:
     chat_message_repository: ChatMessageRepository
     movement_draft_repository: DraftRepository
     assistant_usage_counters: UsageCounters
+    assistant_insight_dismissals: InsightDismissals
     assistant_action_log: ActionLog
     assistant_agent_model: AgentModel
     assistant_accounts_reader: AssistantAccountsReader
@@ -498,6 +505,8 @@ class Container:
     confirm_draft_use_case: ConfirmDraftUseCase
     discard_draft_use_case: DiscardDraftUseCase
     get_assistant_usage_use_case: GetUsageUseCase
+    get_assistant_feed_use_case: GetAssistantFeedUseCase
+    dismiss_insight_use_case: DismissInsightUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -673,6 +682,7 @@ def build_container(settings: Settings | None = None) -> Container:
     chat_message_repository: ChatMessageRepository = MongoChatMessageRepository()
     movement_draft_repository: DraftRepository = MongoMovementDraftRepository()
     assistant_usage_counters: UsageCounters = MongoAIUsageCounters()
+    assistant_insight_dismissals: InsightDismissals = MongoInsightDismissals()
     assistant_action_log: ActionLog = MongoAIActionLog()
     assistant_agent_model: AgentModel = AnthropicAgentModel(
         api_key=settings.anthropic_api_key,
@@ -972,6 +982,7 @@ def build_container(settings: Settings | None = None) -> Container:
         chat_message_repository=chat_message_repository,
         movement_draft_repository=movement_draft_repository,
         assistant_usage_counters=assistant_usage_counters,
+        assistant_insight_dismissals=assistant_insight_dismissals,
         assistant_action_log=assistant_action_log,
         assistant_agent_model=assistant_agent_model,
         assistant_accounts_reader=assistant_accounts_reader,
@@ -1026,6 +1037,16 @@ def build_container(settings: Settings | None = None) -> Container:
         get_assistant_usage_use_case=GetUsageUseCase(
             usage_counters=assistant_usage_counters,
             plan_limits=assistant_plan_limits,
+        ),
+        get_assistant_feed_use_case=GetAssistantFeedUseCase(
+            budgets_reader=assistant_budgets_reader,
+            subscriptions_reader=assistant_subscriptions_reader,
+            movements_reader=assistant_movements_reader,
+            categories_reader=assistant_categories_reader,
+            dismissals=assistant_insight_dismissals,
+        ),
+        dismiss_insight_use_case=DismissInsightUseCase(
+            dismissals=assistant_insight_dismissals,
         ),
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,

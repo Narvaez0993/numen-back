@@ -7,6 +7,8 @@ from src.modules.assistant.adapters.inbound.http.schemas import (
     ConfirmDraftRequest,
     ConfirmDraftResponse,
     DiscardDraftResponse,
+    DismissInsightRequest,
+    FeedResponse,
     ParseRequest,
     ParseResponse,
     UsageResponse,
@@ -19,7 +21,15 @@ from src.modules.assistant.application.dto.draft_commands import (
 from src.modules.assistant.application.dto.parse import ParseCaptureInputDTO
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
+from src.modules.assistant.application.use_cases.dismiss_insight import (
+    DismissInsightInputDTO,
+    DismissInsightUseCase,
+)
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
+from src.modules.assistant.application.use_cases.get_feed import (
+    FeedInputDTO,
+    GetAssistantFeedUseCase,
+)
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase, UsageInputDTO
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
@@ -33,6 +43,18 @@ def _depends_send_chat() -> SendChatMessageUseCase:
     from src.core.di.container import get_container
 
     return get_container().send_chat_message_use_case
+
+
+def _depends_feed() -> GetAssistantFeedUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().get_assistant_feed_use_case
+
+
+def _depends_dismiss_insight() -> DismissInsightUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().dismiss_insight_use_case
 
 
 def _depends_parse() -> ParseCaptureUseCase:
@@ -156,6 +178,27 @@ async def discard_draft(
 ) -> DiscardDraftResponse:
     output = await use_case.execute(DiscardDraftInputDTO(user_id=caller.user_id, draft_id=draft_id))
     return DiscardDraftResponse(**output.model_dump())
+
+
+@router.get("/feed", response_model=FeedResponse)
+async def get_feed(
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: GetAssistantFeedUseCase = Depends(_depends_feed),
+) -> FeedResponse:
+    output = await use_case.execute(
+        FeedInputDTO(user_id=caller.user_id, currency=caller.currency, today=resolve_today(today))
+    )
+    return FeedResponse(**output.model_dump())
+
+
+@router.post("/insights/dismiss", status_code=204)
+async def dismiss_insight(
+    body: DismissInsightRequest,
+    caller: CallerContext = Depends(get_caller),
+    use_case: DismissInsightUseCase = Depends(_depends_dismiss_insight),
+) -> None:
+    await use_case.execute(DismissInsightInputDTO(user_id=caller.user_id, key=body.key))
 
 
 @router.get("/usage", response_model=UsageResponse)
