@@ -30,20 +30,24 @@ class BudgetsBudgetsReader:
             month=None
             if month is None
             else CapView(
+                id=month.id,
                 target=month.target,
                 spent=month.spent,
                 remaining=month.remaining,
                 per_day=month.per_day,
                 projected=month.projected,
                 over=month.over,
+                used=month.used,
             ),
             categories=tuple(
                 CategoryCapView(
+                    id=c.id,
                     category_id=c.category_id,
                     target=c.target,
                     spent=c.spent,
                     remaining=c.remaining,
                     over=c.over,
+                    used=c.used,
                 )
                 for c in output.categories
             ),
