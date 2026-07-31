@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 
 from src.modules.assistant.adapters.inbound.http.schemas import (
+    ApplyPlayRequest,
     ChatHistoryResponse,
     ChatRequest,
     ChatTurnResponse,
@@ -21,6 +22,10 @@ from src.modules.assistant.application.dto.draft_commands import (
 )
 from src.modules.assistant.application.dto.outputs import AgentOutputDTO
 from src.modules.assistant.application.dto.parse import ParseCaptureInputDTO
+from src.modules.assistant.application.use_cases.apply_play import (
+    ApplyPlayInputDTO,
+    ApplyPlayUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import (
@@ -73,6 +78,12 @@ def _depends_dismiss_insight() -> DismissInsightUseCase:
     from src.core.di.container import get_container
 
     return get_container().dismiss_insight_use_case
+
+
+def _depends_apply_play() -> ApplyPlayUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().apply_play_use_case
 
 
 def _depends_list_outputs() -> ListOutputsUseCase:
@@ -284,6 +295,31 @@ async def dismiss_output(
 ) -> AgentOutputDTO:
     return await use_case.execute(
         DismissOutputInputDTO(user_id=caller.user_id, output_id=output_id)
+    )
+
+
+@router.post(
+    "/outputs/{output_id}/plays/{play_id}/apply",
+    response_model=AgentOutputDTO,
+)
+async def apply_play(
+    output_id: str,
+    play_id: str,
+    body: ApplyPlayRequest,
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: ApplyPlayUseCase = Depends(_depends_apply_play),
+) -> AgentOutputDTO:
+    return await use_case.execute(
+        ApplyPlayInputDTO(
+            user_id=caller.user_id,
+            tier=caller.tier,
+            currency=caller.currency,
+            today=resolve_today(today),
+            output_id=output_id,
+            play_id=play_id,
+            account_id=body.account_id,
+        )
     )
 
 

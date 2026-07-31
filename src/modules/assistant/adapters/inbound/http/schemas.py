@@ -22,6 +22,10 @@ class OutputsListResponse(BaseModel):
     outputs: list[AgentOutputDTO]
 
 
+class ApplyPlayRequest(BaseModel):
+    account_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
 class DismissInsightRequest(BaseModel):
     key: str = Field(min_length=1, max_length=120)
 

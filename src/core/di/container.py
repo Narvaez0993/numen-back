@@ -31,6 +31,9 @@ from src.modules.assistant.adapters.outbound.accounts.accounts_accounts_reader i
 )
 from src.modules.assistant.adapters.outbound.ai.anthropic_agent_model import AnthropicAgentModel
 from src.modules.assistant.adapters.outbound.auth.auth_users_reader import AuthUsersReader
+from src.modules.assistant.adapters.outbound.budgets.budgets_budget_writer import (
+    BudgetsBudgetWriter,
+)
 from src.modules.assistant.adapters.outbound.budgets.budgets_budgets_reader import (
     BudgetsBudgetsReader,
 )
@@ -38,6 +41,9 @@ from src.modules.assistant.adapters.outbound.categories.categories_categories_re
     CategoriesCategoriesReader,
 )
 from src.modules.assistant.adapters.outbound.debts.debts_debts_reader import DebtsDebtsReader
+from src.modules.assistant.adapters.outbound.goals.goals_goal_contributor import (
+    GoalsGoalContributor,
+)
 from src.modules.assistant.adapters.outbound.goals.goals_goals_reader import GoalsGoalsReader
 from src.modules.assistant.adapters.outbound.ledger.movements_movement_recorder import (
     MovementsMovementRecorder,
@@ -74,6 +80,7 @@ from src.modules.assistant.application.ports.agent_model import AgentModel
 from src.modules.assistant.application.ports.agent_output_repository import (
     AgentOutputRepository,
 )
+from src.modules.assistant.application.ports.budget_writer import BudgetWriter
 from src.modules.assistant.application.ports.budgets_reader import (
     BudgetsReader as AssistantBudgetsReader,
 )
@@ -85,6 +92,7 @@ from src.modules.assistant.application.ports.debts_reader import (
     DebtsReader as AssistantDebtsReader,
 )
 from src.modules.assistant.application.ports.draft_repository import DraftRepository
+from src.modules.assistant.application.ports.goal_contributor import GoalContributor
 from src.modules.assistant.application.ports.goals_reader import (
     GoalsReader as AssistantGoalsReader,
 )
@@ -102,6 +110,7 @@ from src.modules.assistant.application.ports.usage_counters import UsageCounters
 from src.modules.assistant.application.ports.users_reader import UsersReader
 from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
 from src.modules.assistant.application.services.tool_registry import ToolRegistry
+from src.modules.assistant.application.use_cases.apply_play import ApplyPlayUseCase
 from src.modules.assistant.application.use_cases.compose_monthly_summary import (
     ComposeMonthlySummaryUseCase,
 )
@@ -512,6 +521,8 @@ class Container:
     assistant_insight_dismissals: InsightDismissals
     assistant_agent_outputs: AgentOutputRepository
     assistant_users_reader: UsersReader
+    assistant_budget_writer: BudgetWriter
+    assistant_goal_contributor: GoalContributor
     assistant_action_log: ActionLog
     assistant_agent_model: AgentModel
     assistant_accounts_reader: AssistantAccountsReader
@@ -533,6 +544,7 @@ class Container:
     dismiss_insight_use_case: DismissInsightUseCase
     compose_monthly_summary_use_case: ComposeMonthlySummaryUseCase
     run_monthly_summaries_use_case: RunMonthlySummariesUseCase
+    apply_play_use_case: ApplyPlayUseCase
     list_outputs_use_case: ListOutputsUseCase
     get_output_use_case: GetOutputUseCase
     mark_output_read_use_case: MarkOutputReadUseCase
@@ -774,6 +786,25 @@ def build_container(settings: Settings | None = None) -> Container:
         output_usd_per_mtok=settings.anthropic_output_usd_per_mtok,
     )
 
+    create_budget_use_case = CreateBudgetUseCase(
+        budget_repository=budget_repository,
+        category_reader=budget_category_reader,
+        category_free_limit=settings.budget_categories_free_limit,
+    )
+    update_budget_use_case = UpdateBudgetUseCase(budget_repository=budget_repository)
+    contribute_use_case = ContributeUseCase(
+        goal_repository=goal_repository,
+        funds_reader=goal_funds_reader,
+        transfer_recorder=goal_transfer_recorder,
+    )
+    assistant_budget_writer: BudgetWriter = BudgetsBudgetWriter(
+        create_budget=create_budget_use_case,
+        update_budget=update_budget_use_case,
+    )
+    assistant_goal_contributor: GoalContributor = GoalsGoalContributor(
+        contribute_use_case=contribute_use_case,
+    )
+
     compose_monthly_summary_use_case = ComposeMonthlySummaryUseCase(
         outputs=assistant_agent_outputs,
         movements_reader=assistant_movements_reader,
@@ -925,12 +956,8 @@ def build_container(settings: Settings | None = None) -> Container:
         budget_category_reader=budget_category_reader,
         get_budgets_snapshot_use_case=get_budgets_snapshot_use_case,
         get_global_cap_use_case=get_global_cap_use_case,
-        create_budget_use_case=CreateBudgetUseCase(
-            budget_repository=budget_repository,
-            category_reader=budget_category_reader,
-            category_free_limit=settings.budget_categories_free_limit,
-        ),
-        update_budget_use_case=UpdateBudgetUseCase(budget_repository=budget_repository),
+        create_budget_use_case=create_budget_use_case,
+        update_budget_use_case=update_budget_use_case,
         delete_budget_use_case=DeleteBudgetUseCase(budget_repository=budget_repository),
         debt_repository=debt_repository,
         counterparty_repository=counterparty_repository,
@@ -974,11 +1001,7 @@ def build_container(settings: Settings | None = None) -> Container:
             goal_repository=goal_repository,
             funds_reader=goal_funds_reader,
         ),
-        contribute_use_case=ContributeUseCase(
-            goal_repository=goal_repository,
-            funds_reader=goal_funds_reader,
-            transfer_recorder=goal_transfer_recorder,
-        ),
+        contribute_use_case=contribute_use_case,
         withdraw_use_case=WithdrawUseCase(
             goal_repository=goal_repository,
             funds_reader=goal_funds_reader,
@@ -1036,6 +1059,8 @@ def build_container(settings: Settings | None = None) -> Container:
         assistant_insight_dismissals=assistant_insight_dismissals,
         assistant_agent_outputs=assistant_agent_outputs,
         assistant_users_reader=assistant_users_reader,
+        assistant_budget_writer=assistant_budget_writer,
+        assistant_goal_contributor=assistant_goal_contributor,
         assistant_action_log=assistant_action_log,
         assistant_agent_model=assistant_agent_model,
         assistant_accounts_reader=assistant_accounts_reader,
@@ -1106,6 +1131,12 @@ def build_container(settings: Settings | None = None) -> Container:
         run_monthly_summaries_use_case=RunMonthlySummariesUseCase(
             users_reader=assistant_users_reader,
             compose=compose_monthly_summary_use_case,
+            clock=clock,
+        ),
+        apply_play_use_case=ApplyPlayUseCase(
+            outputs=assistant_agent_outputs,
+            budget_writer=assistant_budget_writer,
+            goal_contributor=assistant_goal_contributor,
             clock=clock,
         ),
         list_outputs_use_case=ListOutputsUseCase(outputs=assistant_agent_outputs),
