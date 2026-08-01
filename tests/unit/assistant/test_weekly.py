@@ -172,6 +172,27 @@ def test_broken_cap_beats_everything_and_kills_the_treat() -> None:
     assert plays[0].params["target"] == 470_000  # round_to_nice of spent
 
 
+def test_a_blown_cap_without_a_projection_still_counts_as_broken() -> None:
+    # `over` is budgets' projection (null early in the month); `used` is the fact.
+    blown = CategoryCapView(
+        id="b-c",
+        category_id="comida",
+        target=300_000,
+        spent=420_000,
+        remaining=-120_000,
+        over=None,
+        used=1.4,
+    )
+    plays = pick_weekly_plays(
+        facts(
+            budgets=BudgetsView(period="2026-08", days_left=28, month=None, categories=(blown,)),
+            goals=(),
+        )
+    )
+    assert [p.action for p in plays] == ["raise_category_cap"]
+    assert plays[0].params["target"] == 420_000  # the real spend, not target x 1.25
+
+
 def test_a_cap_past_80_percent_gets_headroom() -> None:
     near = facts(
         budgets=BudgetsView(

@@ -216,6 +216,24 @@ def test_broken_cap_wins_and_raises_to_a_nice_number() -> None:
     )
 
 
+def test_a_cap_blown_without_a_projection_is_still_broken() -> None:
+    # Budgets reports `over` as a PROJECTION and leaves it null in the first days
+    # of a month. A cap already past 100% must still be raised to the real spend.
+    blown = CategoryCapView(
+        id="b-comida",
+        category_id="comida",
+        target=300_000,
+        spent=420_000,
+        remaining=-120_000,
+        over=None,
+        used=1.4,
+    )
+    draft = pick_monthly_play(facts(budgets=budgets(categories=(blown,))))
+    assert draft is not None
+    assert draft.action == "raise_category_cap"
+    assert draft.params["target"] == 420_000
+
+
 def test_biggest_uncapped_category_gets_a_cap_with_goal_link() -> None:
     draft = pick_monthly_play(facts())
     assert draft is not None

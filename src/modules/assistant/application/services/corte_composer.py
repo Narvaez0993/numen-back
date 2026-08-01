@@ -63,9 +63,12 @@ def pick_goal(facts: CorteFacts) -> GoalView | None:
 def pick_monthly_play(facts: CorteFacts) -> PlayDraft | None:
     """One move, chosen by priority. Create-vs-update is decided HERE: a raise
     carries the budget_id it will update, a set carries what it will create."""
-    broken = [c for c in facts.budgets.categories if c.over is not None and c.over > 0]
+    # Broken = `used >= 1`, NOT `over`: budgets' `over` is where the month is
+    # PROJECTED to close, and it is null in the first days — a cap already blown
+    # on the 1st would look healthy if we asked the projection.
+    broken = [c for c in facts.budgets.categories if c.used >= 1]
     if broken:
-        worst = max(broken, key=lambda c: c.over or 0)
+        worst = max(broken, key=lambda c: c.used)
         return PlayDraft(
             action="raise_category_cap",
             params={

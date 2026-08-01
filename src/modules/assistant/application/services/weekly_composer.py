@@ -74,15 +74,13 @@ def _top_category(facts: WeeklyFacts) -> tuple[str | None, str | None]:
 def _cap_play(facts: WeeklyFacts) -> PlayDraft | None:
     """The fix for the week's budget trouble: the most-broken cap first, then
     the one burning past 80% — raised to a number that can actually hold."""
-    troubled = [
-        c
-        for c in facts.budgets.categories
-        if (c.over is not None and c.over > 0) or c.used >= CAP_NEAR_USED
-    ]
+    troubled = [c for c in facts.budgets.categories if c.used >= CAP_NEAR_USED]
     if not troubled:
         return None
     worst = max(troubled, key=lambda c: c.used)
-    broken = worst.over is not None and worst.over > 0
+    # `used >= 1` is the fact; budgets' `over` is a projection that stays null in
+    # the first days of the month, so asking it would call a blown cap healthy.
+    broken = worst.used >= 1
     target = (
         round_to_nice(worst.spent)
         if broken
