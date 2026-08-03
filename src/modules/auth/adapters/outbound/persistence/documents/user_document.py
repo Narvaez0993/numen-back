@@ -33,4 +33,6 @@ class UserDocument(Document):
         name = "users"
         indexes: ClassVar[list[list[tuple[str, int]]]] = [
             [("email", pymongo.ASCENDING)],
+            # The proactive sweeps list by tier (weekly review goes Plus in Fase 5).
+            [("tier", pymongo.ASCENDING)],
         ]

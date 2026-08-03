@@ -101,12 +101,24 @@ class GoalDTO(BaseModel):
         return cls(**vars(view))
 
 
+class TopCategoryCapDTO(BaseModel):
+    """The cap the user put on this category, measured by the module that owns it."""
+
+    target: int
+    used: float
+    """`spent / target`, uncapped: `1.4` means 140% and the client draws the overflow."""
+
+
 class TopCategoryDTO(BaseModel):
     category_id: str | None
     spent: int
     count: int
     share: float
-    """Portion of the month's expenses, `0..1`. Not a budget — there is none yet."""
+    """Portion of the month's expenses, `0..1`. What the row falls back to **without** a
+    cap: it says how the month was divided, never how full anything is."""
+    cap: TopCategoryCapDTO | None
+    """`null` unless the user watches this category. When it is here, it is what the row
+    measures against — the same limit and the same `used` the Presupuestos screen shows."""
 
 
 class RecentMovementDTO(BaseModel):

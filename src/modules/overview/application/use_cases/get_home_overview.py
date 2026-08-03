@@ -11,11 +11,12 @@ from src.modules.overview.application.dto.home_overview import (
     PaceDTO,
     PreviousMonthDTO,
     RecentMovementDTO,
+    TopCategoryCapDTO,
     TopCategoryDTO,
     UpcomingChargeDTO,
 )
 from src.modules.overview.application.ports.balance_reader import BalanceReader
-from src.modules.overview.application.ports.budget_reader import BudgetReader
+from src.modules.overview.application.ports.budget_reader import BudgetReader, CategoryCapView
 from src.modules.overview.application.ports.debt_reader import DebtReader
 from src.modules.overview.application.ports.goal_reader import GoalReader
 from src.modules.overview.application.ports.movement_summary_reader import (
@@ -78,6 +79,7 @@ class GetHomeOverviewUseCase:
         )
         recent = await self.movement_summary_reader.recent(input_dto.user_id, RECENT_MOVEMENTS)
         cap = await self.budget_reader.global_cap(input_dto.user_id, input_dto.today)
+        category_caps = await self.budget_reader.category_caps(input_dto.user_id, input_dto.today)
         debts = await self.debt_reader.totals(input_dto.user_id)
         goal = await self.goal_reader.top_goal(input_dto.user_id, input_dto.today)
         upcoming = await self.upcoming_charges_reader.upcoming(
@@ -134,7 +136,7 @@ class GetHomeOverviewUseCase:
             budget=None if cap is None else BudgetDTO.from_view(cap),
             debts=DebtsDTO.from_view(debts),
             goal=None if goal is None else GoalDTO.from_view(goal),
-            top_categories=_top_categories(month),
+            top_categories=_top_categories(month, category_caps),
             recent=[RecentMovementDTO.from_view(view) for view in recent],
             upcoming=[UpcomingChargeDTO.from_view(view) for view in upcoming],
         )
@@ -156,11 +158,18 @@ def _previous(previous: PeriodSummary) -> PreviousMonthDTO | None:
     return PreviousMonthDTO(spent=previous.expense_total, income=previous.income_total)
 
 
-def _top_categories(month: PeriodSummary) -> list[TopCategoryDTO]:
-    """Biggest spenders of the month, weighted against the month's own spend.
+def _top_categories(month: PeriodSummary, caps: dict[str, CategoryCapView]) -> list[TopCategoryDTO]:
+    """Biggest spenders of the month, each against the best yardstick it has.
 
-    `share` is a portion of what was actually spent, not progress against a cap:
-    there are no budgets yet, and inventing one would be the dishonest shortcut.
+    A watched category travels with its `cap`, so Home measures it exactly as the
+    Presupuestos screen does. Only the ones nobody put a limit on fall back to `share` of
+    the month's spend — and they say so, because a bar that fills up has to mean the same
+    thing on every screen of this app. It used to mean two things here: a category that
+    took every peso of the month showed a full bar while its cap sat at 40% spent, which
+    read as a cap blown that was not.
+
+    Inventing a cap is still the dishonest shortcut; **using the one the user set** is
+    what became possible.
     """
     total = month.expense_total
     return [
@@ -169,6 +178,15 @@ def _top_categories(month: PeriodSummary) -> list[TopCategoryDTO]:
             spent=spend.spent,
             count=spend.count,
             share=(spend.spent / total) if total > 0 else 0.0,
+            cap=_cap(spend.category_id, caps),
         )
         for spend in month.by_category[:TOP_CATEGORIES]
     ]
+
+
+def _cap(category_id: str | None, caps: dict[str, CategoryCapView]) -> TopCategoryCapDTO | None:
+    """The unclassified bucket has no id, and therefore never a cap."""
+    if category_id is None:
+        return None
+    cap = caps.get(category_id)
+    return None if cap is None else TopCategoryCapDTO(target=cap.target, used=cap.used)

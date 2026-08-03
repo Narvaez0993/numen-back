@@ -46,7 +46,7 @@ class SubscriptionsSubscriptionsReader:
         )
 
     async def upcoming_charges(
-        self, user_id: UUID, currency: str, date_from: str, date_to: str
+        self, user_id: UUID, currency: str, date_from: str, date_to: str, limit: int = 10
     ) -> tuple[UpcomingChargeView, ...]:
         subscriptions = await self.list_subscriptions.execute(
             ListSubscriptionsInputDTO(user_id=user_id, currency=currency, today=date_from)
@@ -54,14 +54,17 @@ class SubscriptionsSubscriptionsReader:
         names = {s.id: s.name for s in subscriptions.subscriptions}
         output = await self.list_upcoming_charges.execute(
             ListUpcomingChargesInputDTO(
-                user_id=user_id, date_from=date_from, date_to=date_to, limit=10
+                user_id=user_id, date_from=date_from, date_to=date_to, limit=limit
             )
         )
         return tuple(
             UpcomingChargeView(
+                subscription_id=c.subscription_id,
                 subscription_name=names.get(c.subscription_id, "?"),
                 amount=c.amount,
                 due_on=c.charge_on,
+                status=c.status,
+                charge_id=c.charge_id,
             )
             for c in output.charges
         )

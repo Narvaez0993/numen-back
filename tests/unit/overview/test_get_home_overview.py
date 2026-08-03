@@ -14,6 +14,7 @@ from .fakes import (
     FakeGoalReader,
     FakeMovementSummaryReader,
     FakeUpcomingChargesReader,
+    category_cap,
     debt_totals,
     global_cap,
     new_user_id,
@@ -293,6 +294,65 @@ async def test_top_categories_carry_their_share_of_the_month() -> None:
         ("cafe", 0.3),
         (None, 0.1),
     ]
+
+
+@pytest.mark.asyncio
+async def test_a_watched_category_carries_the_cap_it_is_measured_against() -> None:
+    """The bug this fixes: Café was every peso of the month, so its share bar filled up
+    while its own cap sat at 40% — Home cried a blown cap that the Presupuestos screen,
+    reading the same month, said was fine."""
+    summaries = FakeMovementSummaryReader(
+        month=PeriodSummary(
+            expense_total=2_000_000,
+            count=9,
+            by_category=(spend("cafe", 2_000_000, 9),),
+        )
+    )
+    budgets = FakeBudgetReader(categories={"cafe": category_cap(target=5_000_000, spent=2_000_000)})
+
+    output = await overview(build(summaries=summaries, budgets=budgets))
+
+    row = output.top_categories[0]
+    assert row.share == 1.0
+    assert row.cap is not None
+    assert (row.cap.target, row.cap.used) == (5_000_000, 0.4)
+
+
+@pytest.mark.asyncio
+async def test_an_unwatched_category_has_no_cap_to_show() -> None:
+    """Only the share, and the client says so: inventing a cap is still the dishonest
+    shortcut."""
+    summaries = FakeMovementSummaryReader(
+        month=PeriodSummary(
+            expense_total=1_000_000,
+            count=5,
+            by_category=(spend("mercado", 700_000, 4), spend(None, 300_000, 1)),
+        )
+    )
+    budgets = FakeBudgetReader(categories={"cafe": category_cap(target=5_000_000, spent=0)})
+
+    output = await overview(build(summaries=summaries, budgets=budgets))
+
+    assert [c.cap for c in output.top_categories] == [None, None]
+
+
+@pytest.mark.asyncio
+async def test_a_cap_can_be_over_and_says_so() -> None:
+    """`used` is uncapped so the client can draw the overflow, exactly as it does on the
+    Presupuestos screen."""
+    summaries = FakeMovementSummaryReader(
+        month=PeriodSummary(
+            expense_total=700_000,
+            count=6,
+            by_category=(spend("cafe", 700_000, 6),),
+        )
+    )
+    budgets = FakeBudgetReader(categories={"cafe": category_cap(target=500_000, spent=700_000)})
+
+    output = await overview(build(summaries=summaries, budgets=budgets))
+
+    assert output.top_categories[0].cap is not None
+    assert output.top_categories[0].cap.used == 1.4
 
 
 @pytest.mark.asyncio

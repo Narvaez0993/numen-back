@@ -9,6 +9,7 @@ from src.modules.movements.adapters.outbound.persistence.mappers.movement_mapper
 )
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
+    DaySpend,
     GoalFunds,
     MerchantSpend,
     MovementQuery,
@@ -146,6 +147,33 @@ class MongoMovementRepository:
         return [
             CategorySpend(
                 category_id=row["_id"],
+                spent=int(row["spent"]),
+                count=int(row["count"]),
+            )
+            for row in rows
+        ]
+
+    async def spend_by_day(self, user_id: UUID, date_from: str, date_to: str) -> list[DaySpend]:
+        pipeline: list[dict[str, Any]] = [
+            {
+                "$match": {
+                    **self._range_match(user_id, date_from, date_to),
+                    "type": "expense",
+                }
+            },
+            {
+                "$group": {
+                    "_id": "$occurred_on",
+                    "spent": {"$sum": "$amount"},
+                    "count": {"$sum": 1},
+                }
+            },
+            {"$sort": {"_id": 1}},
+        ]
+        rows = await MovementDocument.aggregate(pipeline).to_list()
+        return [
+            DaySpend(
+                day=str(row["_id"]),
                 spent=int(row["spent"]),
                 count=int(row["count"]),
             )

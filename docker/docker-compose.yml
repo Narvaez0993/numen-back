@@ -77,6 +77,8 @@ services:
       MONGO_DB_NAME: numen
       REDIS_URL: redis://redis:6379/0
       JWT_SECRET: dev-secret-do-not-use-in-prod-32chars-min-length-please
+      # The narrator (El Corte) runs in the worker, not the API.
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     volumes:
       - ../src:/app/src
     command: ["arq", "src.core.workers.WorkerSettings"]

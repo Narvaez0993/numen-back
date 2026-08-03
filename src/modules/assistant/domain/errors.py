@@ -1,6 +1,12 @@
 from typing import ClassVar
 
-from src.shared.domain.errors import ConflictError, DomainError, ForbiddenError, NotFoundError
+from src.shared.domain.errors import (
+    ConflictError,
+    DomainError,
+    ForbiddenError,
+    NotFoundError,
+    ValidationError,
+)
 
 
 class ChatLimitReachedError(ForbiddenError):
@@ -19,6 +25,45 @@ class RegistrationLimitReachedError(ForbiddenError):
         # Capture never hard-blocks the habit (docs 02): the client answers this
         # by opening the manual form, which is always there.
         super().__init__("Monthly AI-capture limit reached for your plan")
+
+
+class AgentOutputNotFoundError(NotFoundError):
+    code: ClassVar[str] = "assistant.output_not_found"
+
+    def __init__(self) -> None:
+        super().__init__("Agent output not found")
+
+
+class PlayNotFoundError(NotFoundError):
+    code: ClassVar[str] = "assistant.play_not_found"
+
+    def __init__(self) -> None:
+        super().__init__("Play not found in this output")
+
+
+class PlayNotApplyableError(ConflictError):
+    code: ClassVar[str] = "assistant.play_not_applyable"
+
+    def __init__(self) -> None:
+        # `treat` is the agent saying "this fits" — advice, not a button.
+        super().__init__("This play cannot be applied")
+
+
+class AccountRequiredError(ValidationError):
+    code: ClassVar[str] = "assistant.account_required"
+
+    def __init__(self) -> None:
+        # A goal contribution is a real transfer: the user picks where from.
+        super().__init__("Pick the account the contribution leaves from")
+
+
+class PlayExecutionError(Exception):
+    """The sibling module said no (gate, gone, duplicate). Never an HTTP error:
+    the play lands as `failed` with this code and the response is still 200."""
+
+    def __init__(self, code: str) -> None:
+        super().__init__(code)
+        self.code = code
 
 
 class DraftNotFoundError(NotFoundError):

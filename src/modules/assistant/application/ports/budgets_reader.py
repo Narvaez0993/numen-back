@@ -5,6 +5,8 @@ from uuid import UUID
 
 @dataclass(frozen=True)
 class CapView:
+    id: str
+    """The budget's id — what a "raise this cap" play needs to execute."""
     target: int
     spent: int
     remaining: int
@@ -12,15 +14,19 @@ class CapView:
     per_day: int | None
     projected: int | None
     over: int | None
+    used: float
+    """`spent / target`, unclamped — the 80% alert threshold reads this."""
 
 
 @dataclass(frozen=True)
 class CategoryCapView:
+    id: str
     category_id: str
     target: int
     spent: int
     remaining: int
     over: int | None
+    used: float
 
 
 @dataclass(frozen=True)
