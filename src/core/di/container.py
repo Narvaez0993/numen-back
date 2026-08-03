@@ -199,6 +199,7 @@ from src.modules.budgets.application.use_cases.delete_budget import DeleteBudget
 from src.modules.budgets.application.use_cases.get_budgets_snapshot import (
     GetBudgetsSnapshotUseCase,
 )
+from src.modules.budgets.application.use_cases.get_category_caps import GetCategoryCapsUseCase
 from src.modules.budgets.application.use_cases.get_global_cap import GetGlobalCapUseCase
 from src.modules.budgets.application.use_cases.update_budget import UpdateBudgetUseCase
 from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
@@ -303,8 +304,8 @@ from src.modules.movements.application.use_cases.update_movement import UpdateMo
 from src.modules.overview.adapters.outbound.balance.accounts_balance_reader import (
     AccountsBalanceReader,
 )
-from src.modules.overview.adapters.outbound.budgets.budgets_global_cap_reader import (
-    BudgetsGlobalCapReader,
+from src.modules.overview.adapters.outbound.budgets.budgets_cap_reader import (
+    BudgetsCapReader,
 )
 from src.modules.overview.adapters.outbound.debts.debts_debt_reader import (
     DebtsDebtReader,
@@ -639,6 +640,10 @@ def build_container(settings: Settings | None = None) -> Container:
         budget_repository=budget_repository,
         spend_reader=budget_spend_reader,
     )
+    get_category_caps_use_case = GetCategoryCapsUseCase(
+        budget_repository=budget_repository,
+        spend_reader=budget_spend_reader,
+    )
 
     debt_repository: DebtRepository = MongoDebtRepository()
     counterparty_repository: CounterpartyRepository = MongoCounterpartyRepository()
@@ -710,8 +715,9 @@ def build_container(settings: Settings | None = None) -> Container:
     upcoming_charges_reader: UpcomingChargesReader = SubscriptionsUpcomingChargesReader(
         list_upcoming=list_upcoming_charges_use_case,
     )
-    budget_cap_reader: BudgetReader = BudgetsGlobalCapReader(
+    budget_cap_reader: BudgetReader = BudgetsCapReader(
         get_global_cap=get_global_cap_use_case,
+        get_category_caps=get_category_caps_use_case,
     )
     debt_totals_reader: DebtReader = DebtsDebtReader(
         get_debt_totals=get_debt_totals_use_case,

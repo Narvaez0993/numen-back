@@ -9,11 +9,13 @@ import pytest
 
 from src.modules.budgets.application.dto.budget_commands import (
     BudgetsSnapshotInputDTO,
+    CategoryCapsInputDTO,
     GlobalCapInputDTO,
 )
 from src.modules.budgets.application.use_cases.get_budgets_snapshot import (
     GetBudgetsSnapshotUseCase,
 )
+from src.modules.budgets.application.use_cases.get_category_caps import GetCategoryCapsUseCase
 from src.modules.budgets.application.use_cases.get_global_cap import GetGlobalCapUseCase
 
 from .fakes import (
@@ -40,6 +42,12 @@ async def global_cap(repository: FakeBudgetRepository, spending: FakeSpendReader
     return await GetGlobalCapUseCase(budget_repository=repository, spend_reader=spending).execute(
         GlobalCapInputDTO(user_id=user_id, today=TODAY)
     )
+
+
+async def category_caps(repository: FakeBudgetRepository, spending: FakeSpendReader, user_id):
+    return await GetCategoryCapsUseCase(
+        budget_repository=repository, spend_reader=spending
+    ).execute(CategoryCapsInputDTO(user_id=user_id, today=TODAY))
 
 
 @pytest.mark.asyncio
@@ -213,3 +221,68 @@ async def test_home_asks_only_about_the_month_it_needs() -> None:
     await global_cap(repository, spending, user_id)
 
     assert spending.ranges == [("2026-07-01", "2026-07-31")]
+
+
+@pytest.mark.asyncio
+async def test_home_reads_the_category_caps_already_measured() -> None:
+    """So the Home row can put a category against the limit its owner set, instead of
+    against the month — which filled the bar of whoever spent the most."""
+    user_id = new_user_id()
+    repository = FakeBudgetRepository(
+        [
+            budget(user_id=user_id, scope="category", category_id="cafe", target=5_000_000),
+            budget(user_id=user_id, target=8_000_000),
+        ]
+    )
+    spending = FakeSpendReader(by_category=[spend("cafe", 2_000_000, 9)])
+
+    output = await category_caps(repository, spending, user_id)
+
+    assert [(c.category_id, c.target, c.spent, c.used) for c in output] == [
+        ("cafe", 5_000_000, 2_000_000, 0.4)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_watched_category_without_expenses_is_zero_spent() -> None:
+    """0 of its cap, not a missing row: the user set the cap and wants to see it holding."""
+    user_id = new_user_id()
+    repository = FakeBudgetRepository(
+        [budget(user_id=user_id, scope="category", category_id="cafe", target=5_000_000)]
+    )
+
+    output = await category_caps(
+        repository, FakeSpendReader(by_category=[spend("mercado", 900_000, 3)]), user_id
+    )
+
+    assert [(c.category_id, c.spent, c.used) for c in output] == [("cafe", 0, 0.0)]
+
+
+@pytest.mark.asyncio
+async def test_watching_no_category_costs_home_no_aggregation() -> None:
+    """The common case pays one indexed read and nothing else — there is no cap for the
+    grouping to be measured against."""
+    user_id = new_user_id()
+    repository = FakeBudgetRepository([budget(user_id=user_id, target=3_000_000)])
+    spending = FakeSpendReader(by_category=[spend("mercado", 100_000, 2)])
+
+    assert await category_caps(repository, spending, user_id) == []
+    assert spending.ranges == []
+
+
+@pytest.mark.asyncio
+async def test_home_and_the_screen_show_the_same_category_cap() -> None:
+    """The same invariant as the ceiling, one level down: a category cannot be 40% spent
+    on one screen and full on the other."""
+    user_id = new_user_id()
+    repository = FakeBudgetRepository(
+        [budget(user_id=user_id, scope="category", category_id="cafe", target=5_000_000)]
+    )
+    rows = [spend("cafe", 2_000_000, 9), spend(None, 419_500, 3)]
+
+    from_home = await category_caps(repository, FakeSpendReader(by_category=rows), user_id)
+    from_screen = await snapshot(repository, FakeSpendReader(by_category=rows), user_id)
+
+    assert [(c.category_id, c.target, c.spent, c.used) for c in from_home] == [
+        (c.category_id, c.target, c.spent, c.used) for c in from_screen.categories
+    ]

@@ -72,11 +72,22 @@ class GoalResponse(BaseModel):
     projected_on: str | None
 
 
+class TopCategoryCapResponse(BaseModel):
+    """The cap on this category. `used` is `spent / target`, uncapped."""
+
+    target: int
+    used: float
+
+
 class TopCategoryResponse(BaseModel):
     category_id: str | None
     spent: int
     count: int
     share: float
+    """Portion of the month's expenses. What the row shows **without** a cap."""
+    cap: TopCategoryCapResponse | None
+    """`null` unless the user watches this category — then the row measures against this
+    instead, exactly as the Presupuestos screen does."""
 
 
 class RecentMovementResponse(BaseModel):

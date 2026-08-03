@@ -22,7 +22,31 @@ class GlobalCapView:
     over: int | None
 
 
-class BudgetReader(Protocol):
-    """Outbound port: the global cap for a day, or `None` if the user set none."""
+@dataclass(frozen=True)
+class CategoryCapView:
+    """A category's cap, measured by the module that owns it.
 
-    async def global_cap(self, user_id: UUID, today: str) -> GlobalCapView | None: ...
+    Only the two figures the Home row shows: the limit, and how much of it is gone. No
+    daily ceiling and no projection — a category is not where this app spreads a number
+    over the days, and a figure that nothing renders is a figure that goes stale unseen.
+
+    `used` arrives measured for the same reason as the ceiling above: dividing here would
+    put `spent / target` in two modules, and the Presupuestos screen would be the only one
+    that noticed if that ever stopped being the definition.
+    """
+
+    target: int
+    used: float
+
+
+class BudgetReader(Protocol):
+    """Outbound port: the caps Home puts its own figures against."""
+
+    async def global_cap(self, user_id: UUID, today: str) -> GlobalCapView | None:
+        """The month's ceiling for a day, or `None` if the user set none."""
+        ...
+
+    async def category_caps(self, user_id: UUID, today: str) -> dict[str, CategoryCapView]:
+        """The watched categories, by id. Empty for someone who watches none — Home then
+        weighs its categories against the month's spending instead."""
+        ...
