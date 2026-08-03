@@ -41,3 +41,11 @@ class GlobalCapInputDTO(BaseModel):
 
     user_id: UUID
     today: str
+
+
+class CategoryCapsInputDTO(BaseModel):
+    """The other half of what Home asks for: the caps of the categories it lists,
+    measured but without their merchants."""
+
+    user_id: UUID
+    today: str

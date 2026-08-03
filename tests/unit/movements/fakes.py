@@ -8,6 +8,7 @@ from src.modules.movements.application.ports.idempotency_store import (
 )
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
+    DaySpend,
     MovementQuery,
     MovementTotals,
 )
@@ -111,6 +112,17 @@ class InMemoryMovementRepository:
             for category_id, items in buckets.items()
         ]
         return sorted(spends, key=lambda s: s.spent, reverse=True)
+
+    async def spend_by_day(self, user_id: UUID, date_from: str, date_to: str) -> list[DaySpend]:
+        buckets: dict[str, list[Movement]] = {}
+        for movement in self._in_range(user_id, date_from, date_to):
+            if movement.type != "expense":
+                continue
+            buckets.setdefault(movement.occurred_on, []).append(movement)
+        return [
+            DaySpend(day=day, spent=sum(m.amount for m in items), count=len(items))
+            for day, items in sorted(buckets.items())
+        ]
 
 
 class FakeSourceLedger:

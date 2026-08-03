@@ -75,6 +75,11 @@ class Settings(BaseSettings):
     assistant_message_grace: int = 3
     assistant_history_window: int = 24
     assistant_max_tool_iterations: int = 6
+    # Assistant — the proactive weekly review. Everyone gets it while the agent
+    # earns its keep; flips to "plus" with Fase 5's paywall.
+    assistant_weekly_review_audience: str = "all"
+    # A treat only ships when the month's slack clears this fraction of income.
+    assistant_treat_slack_fraction: float = 0.10
 
     # Storage (Cloudflare R2 — S3-compatible)
     r2_endpoint: str = ""

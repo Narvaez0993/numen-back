@@ -18,6 +18,17 @@ class MerchantDTO(BaseModel):
         return cls(label=view.label, spent=view.spent, count=view.count)
 
 
+class CategoryCapProgressDTO(CapDTO):
+    """A category cap measured, without the merchants behind it — what Home needs to put
+    a category's spending against the limit its owner set."""
+
+    category_id: str
+
+    @classmethod
+    def for_category(cls, budget: Budget, cap: CapProgress) -> "CategoryCapProgressDTO":
+        return cls(**CapDTO.build(budget, cap).model_dump(), category_id=str(budget.category_id))
+
+
 class CategoryCapDTO(CapDTO):
     """A category cap. Travels with the **id**, never the name: the client resolves the
     label from the catalog it already caches, so renaming a category updates this screen

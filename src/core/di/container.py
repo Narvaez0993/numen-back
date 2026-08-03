@@ -30,6 +30,10 @@ from src.modules.assistant.adapters.outbound.accounts.accounts_accounts_reader i
     AccountsAccountsReader,
 )
 from src.modules.assistant.adapters.outbound.ai.anthropic_agent_model import AnthropicAgentModel
+from src.modules.assistant.adapters.outbound.auth.auth_users_reader import AuthUsersReader
+from src.modules.assistant.adapters.outbound.budgets.budgets_budget_writer import (
+    BudgetsBudgetWriter,
+)
 from src.modules.assistant.adapters.outbound.budgets.budgets_budgets_reader import (
     BudgetsBudgetsReader,
 )
@@ -37,6 +41,9 @@ from src.modules.assistant.adapters.outbound.categories.categories_categories_re
     CategoriesCategoriesReader,
 )
 from src.modules.assistant.adapters.outbound.debts.debts_debts_reader import DebtsDebtsReader
+from src.modules.assistant.adapters.outbound.goals.goals_goal_contributor import (
+    GoalsGoalContributor,
+)
 from src.modules.assistant.adapters.outbound.goals.goals_goals_reader import GoalsGoalsReader
 from src.modules.assistant.adapters.outbound.ledger.movements_movement_recorder import (
     MovementsMovementRecorder,
@@ -47,8 +54,14 @@ from src.modules.assistant.adapters.outbound.movements.movements_movements_reade
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_action_log import (
     MongoAIActionLog,
 )
+from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_agent_outputs import (
+    MongoAgentOutputs,
+)
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_chat_messages import (
     MongoChatMessageRepository,
+)
+from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_dismissals import (
+    MongoInsightDismissals,
 )
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_drafts import (
     MongoMovementDraftRepository,
@@ -64,6 +77,10 @@ from src.modules.assistant.application.ports.accounts_reader import (
 )
 from src.modules.assistant.application.ports.action_log import ActionLog
 from src.modules.assistant.application.ports.agent_model import AgentModel
+from src.modules.assistant.application.ports.agent_output_repository import (
+    AgentOutputRepository,
+)
+from src.modules.assistant.application.ports.budget_writer import BudgetWriter
 from src.modules.assistant.application.ports.budgets_reader import (
     BudgetsReader as AssistantBudgetsReader,
 )
@@ -75,9 +92,11 @@ from src.modules.assistant.application.ports.debts_reader import (
     DebtsReader as AssistantDebtsReader,
 )
 from src.modules.assistant.application.ports.draft_repository import DraftRepository
+from src.modules.assistant.application.ports.goal_contributor import GoalContributor
 from src.modules.assistant.application.ports.goals_reader import (
     GoalsReader as AssistantGoalsReader,
 )
+from src.modules.assistant.application.ports.insight_dismissals import InsightDismissals
 from src.modules.assistant.application.ports.movement_recorder import (
     MovementRecorder as AssistantMovementRecorder,
 )
@@ -88,13 +107,33 @@ from src.modules.assistant.application.ports.subscriptions_reader import (
     SubscriptionsReader as AssistantSubscriptionsReader,
 )
 from src.modules.assistant.application.ports.usage_counters import UsageCounters
+from src.modules.assistant.application.ports.users_reader import UsersReader
 from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
 from src.modules.assistant.application.services.tool_registry import ToolRegistry
+from src.modules.assistant.application.use_cases.apply_play import ApplyPlayUseCase
+from src.modules.assistant.application.use_cases.compose_monthly_summary import (
+    ComposeMonthlySummaryUseCase,
+)
+from src.modules.assistant.application.use_cases.compose_weekly_review import (
+    ComposeWeeklyReviewUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
+from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
+from src.modules.assistant.application.use_cases.dismiss_output import DismissOutputUseCase
 from src.modules.assistant.application.use_cases.get_chat_history import GetChatHistoryUseCase
+from src.modules.assistant.application.use_cases.get_feed import GetAssistantFeedUseCase
+from src.modules.assistant.application.use_cases.get_output import GetOutputUseCase
 from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase
+from src.modules.assistant.application.use_cases.list_outputs import ListOutputsUseCase
+from src.modules.assistant.application.use_cases.mark_output_read import MarkOutputReadUseCase
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
+from src.modules.assistant.application.use_cases.run_monthly_summaries import (
+    RunMonthlySummariesUseCase,
+)
+from src.modules.assistant.application.use_cases.run_weekly_reviews import (
+    RunWeeklyReviewsUseCase,
+)
 from src.modules.assistant.application.use_cases.send_chat_message import SendChatMessageUseCase
 from src.modules.auth.adapters.outbound.crypto.argon2_hasher import Argon2Hasher
 from src.modules.auth.adapters.outbound.crypto.jwt_token_service import JwtTokenService
@@ -160,6 +199,7 @@ from src.modules.budgets.application.use_cases.delete_budget import DeleteBudget
 from src.modules.budgets.application.use_cases.get_budgets_snapshot import (
     GetBudgetsSnapshotUseCase,
 )
+from src.modules.budgets.application.use_cases.get_category_caps import GetCategoryCapsUseCase
 from src.modules.budgets.application.use_cases.get_global_cap import GetGlobalCapUseCase
 from src.modules.budgets.application.use_cases.update_budget import UpdateBudgetUseCase
 from src.modules.categories.adapters.outbound.persistence.repositories.mongo_category_repository import (  # noqa: E501
@@ -247,6 +287,9 @@ from src.modules.movements.application.services.movement_references import (
 )
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
+from src.modules.movements.application.use_cases.get_daily_spend import (
+    GetDailySpendUseCase,
+)
 from src.modules.movements.application.use_cases.get_goal_funds import (
     GetGoalFundsUseCase,
 )
@@ -261,8 +304,8 @@ from src.modules.movements.application.use_cases.update_movement import UpdateMo
 from src.modules.overview.adapters.outbound.balance.accounts_balance_reader import (
     AccountsBalanceReader,
 )
-from src.modules.overview.adapters.outbound.budgets.budgets_global_cap_reader import (
-    BudgetsGlobalCapReader,
+from src.modules.overview.adapters.outbound.budgets.budgets_cap_reader import (
+    BudgetsCapReader,
 )
 from src.modules.overview.adapters.outbound.debts.debts_debt_reader import (
     DebtsDebtReader,
@@ -412,6 +455,7 @@ class Container:
     delete_movement_use_case: DeleteMovementUseCase
     summarize_movements_use_case: SummarizeMovementsUseCase
     get_top_merchants_use_case: GetTopMerchantsUseCase
+    get_daily_spend_use_case: GetDailySpendUseCase
     get_goal_funds_use_case: GetGoalFundsUseCase
 
     # Budgets
@@ -481,6 +525,11 @@ class Container:
     chat_message_repository: ChatMessageRepository
     movement_draft_repository: DraftRepository
     assistant_usage_counters: UsageCounters
+    assistant_insight_dismissals: InsightDismissals
+    assistant_agent_outputs: AgentOutputRepository
+    assistant_users_reader: UsersReader
+    assistant_budget_writer: BudgetWriter
+    assistant_goal_contributor: GoalContributor
     assistant_action_log: ActionLog
     assistant_agent_model: AgentModel
     assistant_accounts_reader: AssistantAccountsReader
@@ -498,6 +547,17 @@ class Container:
     confirm_draft_use_case: ConfirmDraftUseCase
     discard_draft_use_case: DiscardDraftUseCase
     get_assistant_usage_use_case: GetUsageUseCase
+    get_assistant_feed_use_case: GetAssistantFeedUseCase
+    dismiss_insight_use_case: DismissInsightUseCase
+    compose_monthly_summary_use_case: ComposeMonthlySummaryUseCase
+    run_monthly_summaries_use_case: RunMonthlySummariesUseCase
+    compose_weekly_review_use_case: ComposeWeeklyReviewUseCase
+    run_weekly_reviews_use_case: RunWeeklyReviewsUseCase
+    apply_play_use_case: ApplyPlayUseCase
+    list_outputs_use_case: ListOutputsUseCase
+    get_output_use_case: GetOutputUseCase
+    mark_output_read_use_case: MarkOutputReadUseCase
+    dismiss_output_use_case: DismissOutputUseCase
 
 
 def build_container(settings: Settings | None = None) -> Container:
@@ -554,6 +614,9 @@ def build_container(settings: Settings | None = None) -> Container:
     get_top_merchants_use_case = GetTopMerchantsUseCase(
         movement_repository=movement_repository,
     )
+    get_daily_spend_use_case = GetDailySpendUseCase(
+        movement_repository=movement_repository,
+    )
     get_goal_funds_use_case = GetGoalFundsUseCase(
         movement_repository=movement_repository,
     )
@@ -574,6 +637,10 @@ def build_container(settings: Settings | None = None) -> Container:
         category_repository=category_repository,
     )
     get_global_cap_use_case = GetGlobalCapUseCase(
+        budget_repository=budget_repository,
+        spend_reader=budget_spend_reader,
+    )
+    get_category_caps_use_case = GetCategoryCapsUseCase(
         budget_repository=budget_repository,
         spend_reader=budget_spend_reader,
     )
@@ -648,8 +715,9 @@ def build_container(settings: Settings | None = None) -> Container:
     upcoming_charges_reader: UpcomingChargesReader = SubscriptionsUpcomingChargesReader(
         list_upcoming=list_upcoming_charges_use_case,
     )
-    budget_cap_reader: BudgetReader = BudgetsGlobalCapReader(
+    budget_cap_reader: BudgetReader = BudgetsCapReader(
         get_global_cap=get_global_cap_use_case,
+        get_category_caps=get_category_caps_use_case,
     )
     debt_totals_reader: DebtReader = DebtsDebtReader(
         get_debt_totals=get_debt_totals_use_case,
@@ -673,6 +741,9 @@ def build_container(settings: Settings | None = None) -> Container:
     chat_message_repository: ChatMessageRepository = MongoChatMessageRepository()
     movement_draft_repository: DraftRepository = MongoMovementDraftRepository()
     assistant_usage_counters: UsageCounters = MongoAIUsageCounters()
+    assistant_insight_dismissals: InsightDismissals = MongoInsightDismissals()
+    assistant_agent_outputs: AgentOutputRepository = MongoAgentOutputs()
+    assistant_users_reader: UsersReader = AuthUsersReader()
     assistant_action_log: ActionLog = MongoAIActionLog()
     assistant_agent_model: AgentModel = AnthropicAgentModel(
         api_key=settings.anthropic_api_key,
@@ -687,6 +758,7 @@ def build_container(settings: Settings | None = None) -> Container:
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
         get_top_merchants=get_top_merchants_use_case,
+        get_daily_spend=get_daily_spend_use_case,
     )
     assistant_budgets_reader: AssistantBudgetsReader = BudgetsBudgetsReader(
         get_budgets_snapshot=get_budgets_snapshot_use_case,
@@ -726,6 +798,54 @@ def build_container(settings: Settings | None = None) -> Container:
     assistant_pricing = ModelPricing(
         input_usd_per_mtok=settings.anthropic_input_usd_per_mtok,
         output_usd_per_mtok=settings.anthropic_output_usd_per_mtok,
+    )
+
+    create_budget_use_case = CreateBudgetUseCase(
+        budget_repository=budget_repository,
+        category_reader=budget_category_reader,
+        category_free_limit=settings.budget_categories_free_limit,
+    )
+    update_budget_use_case = UpdateBudgetUseCase(budget_repository=budget_repository)
+    contribute_use_case = ContributeUseCase(
+        goal_repository=goal_repository,
+        funds_reader=goal_funds_reader,
+        transfer_recorder=goal_transfer_recorder,
+    )
+    assistant_budget_writer: BudgetWriter = BudgetsBudgetWriter(
+        create_budget=create_budget_use_case,
+        update_budget=update_budget_use_case,
+    )
+    assistant_goal_contributor: GoalContributor = GoalsGoalContributor(
+        contribute_use_case=contribute_use_case,
+    )
+
+    compose_monthly_summary_use_case = ComposeMonthlySummaryUseCase(
+        outputs=assistant_agent_outputs,
+        movements_reader=assistant_movements_reader,
+        budgets_reader=assistant_budgets_reader,
+        goals_reader=assistant_goals_reader,
+        categories_reader=assistant_categories_reader,
+        agent_model=assistant_agent_model,
+        action_log=assistant_action_log,
+        clock=clock,
+        pricing=assistant_pricing,
+        model_name=settings.anthropic_model,
+        category_caps_free_limit=settings.budget_categories_free_limit,
+    )
+
+    compose_weekly_review_use_case = ComposeWeeklyReviewUseCase(
+        outputs=assistant_agent_outputs,
+        movements_reader=assistant_movements_reader,
+        budgets_reader=assistant_budgets_reader,
+        goals_reader=assistant_goals_reader,
+        categories_reader=assistant_categories_reader,
+        subscriptions_reader=assistant_subscriptions_reader,
+        agent_model=assistant_agent_model,
+        action_log=assistant_action_log,
+        clock=clock,
+        pricing=assistant_pricing,
+        model_name=settings.anthropic_model,
+        treat_slack_fraction=settings.assistant_treat_slack_fraction,
     )
 
     session_issuer = SessionIssuer(
@@ -858,18 +978,15 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         summarize_movements_use_case=summarize_movements_use_case,
         get_top_merchants_use_case=get_top_merchants_use_case,
+        get_daily_spend_use_case=get_daily_spend_use_case,
         get_goal_funds_use_case=get_goal_funds_use_case,
         budget_repository=budget_repository,
         budget_spend_reader=budget_spend_reader,
         budget_category_reader=budget_category_reader,
         get_budgets_snapshot_use_case=get_budgets_snapshot_use_case,
         get_global_cap_use_case=get_global_cap_use_case,
-        create_budget_use_case=CreateBudgetUseCase(
-            budget_repository=budget_repository,
-            category_reader=budget_category_reader,
-            category_free_limit=settings.budget_categories_free_limit,
-        ),
-        update_budget_use_case=UpdateBudgetUseCase(budget_repository=budget_repository),
+        create_budget_use_case=create_budget_use_case,
+        update_budget_use_case=update_budget_use_case,
         delete_budget_use_case=DeleteBudgetUseCase(budget_repository=budget_repository),
         debt_repository=debt_repository,
         counterparty_repository=counterparty_repository,
@@ -913,11 +1030,7 @@ def build_container(settings: Settings | None = None) -> Container:
             goal_repository=goal_repository,
             funds_reader=goal_funds_reader,
         ),
-        contribute_use_case=ContributeUseCase(
-            goal_repository=goal_repository,
-            funds_reader=goal_funds_reader,
-            transfer_recorder=goal_transfer_recorder,
-        ),
+        contribute_use_case=contribute_use_case,
         withdraw_use_case=WithdrawUseCase(
             goal_repository=goal_repository,
             funds_reader=goal_funds_reader,
@@ -972,6 +1085,11 @@ def build_container(settings: Settings | None = None) -> Container:
         chat_message_repository=chat_message_repository,
         movement_draft_repository=movement_draft_repository,
         assistant_usage_counters=assistant_usage_counters,
+        assistant_insight_dismissals=assistant_insight_dismissals,
+        assistant_agent_outputs=assistant_agent_outputs,
+        assistant_users_reader=assistant_users_reader,
+        assistant_budget_writer=assistant_budget_writer,
+        assistant_goal_contributor=assistant_goal_contributor,
         assistant_action_log=assistant_action_log,
         assistant_agent_model=assistant_agent_model,
         assistant_accounts_reader=assistant_accounts_reader,
@@ -1026,6 +1144,46 @@ def build_container(settings: Settings | None = None) -> Container:
         get_assistant_usage_use_case=GetUsageUseCase(
             usage_counters=assistant_usage_counters,
             plan_limits=assistant_plan_limits,
+        ),
+        get_assistant_feed_use_case=GetAssistantFeedUseCase(
+            budgets_reader=assistant_budgets_reader,
+            subscriptions_reader=assistant_subscriptions_reader,
+            movements_reader=assistant_movements_reader,
+            categories_reader=assistant_categories_reader,
+            dismissals=assistant_insight_dismissals,
+            outputs=assistant_agent_outputs,
+        ),
+        dismiss_insight_use_case=DismissInsightUseCase(
+            dismissals=assistant_insight_dismissals,
+        ),
+        compose_monthly_summary_use_case=compose_monthly_summary_use_case,
+        run_monthly_summaries_use_case=RunMonthlySummariesUseCase(
+            users_reader=assistant_users_reader,
+            compose=compose_monthly_summary_use_case,
+            clock=clock,
+        ),
+        apply_play_use_case=ApplyPlayUseCase(
+            outputs=assistant_agent_outputs,
+            budget_writer=assistant_budget_writer,
+            goal_contributor=assistant_goal_contributor,
+            clock=clock,
+        ),
+        compose_weekly_review_use_case=compose_weekly_review_use_case,
+        run_weekly_reviews_use_case=RunWeeklyReviewsUseCase(
+            users_reader=assistant_users_reader,
+            compose=compose_weekly_review_use_case,
+            clock=clock,
+            audience=settings.assistant_weekly_review_audience,
+        ),
+        list_outputs_use_case=ListOutputsUseCase(outputs=assistant_agent_outputs),
+        get_output_use_case=GetOutputUseCase(outputs=assistant_agent_outputs),
+        mark_output_read_use_case=MarkOutputReadUseCase(
+            outputs=assistant_agent_outputs,
+            clock=clock,
+        ),
+        dismiss_output_use_case=DismissOutputUseCase(
+            outputs=assistant_agent_outputs,
+            clock=clock,
         ),
         get_home_overview_use_case=GetHomeOverviewUseCase(
             balance_reader=balance_reader,
