@@ -88,6 +88,10 @@ class ComposeWeeklyReviewUseCase:
 
         prev_first, prev_last = iso_week_bounds(previous_iso_week_label(period))
         previous_week = await self.movements_reader.summary(user.user_id, prev_first, prev_last)
+        # The week in data, same sources the Corte reads: the review is a
+        # report the client renders, not just a narrated sentence.
+        days = await self.movements_reader.spend_by_day(user.user_id, first, last)
+        merchants = await self.movements_reader.top_merchants(user.user_id, first, last, 1)
 
         today = self.clock.now().date().isoformat()
         month_first, month_last = month_bounds(today[:7])
@@ -114,6 +118,8 @@ class ComposeWeeklyReviewUseCase:
             goals=goals,
             treat_slack_fraction=self.treat_slack_fraction,
             previous_plays=previous_review.plays if previous_review else (),
+            days=days,
+            top_merchant=merchants[0] if merchants else None,
         )
         composition = compose_weekly(facts)
 
@@ -153,6 +159,17 @@ class ComposeWeeklyReviewUseCase:
             "top_category_id": composition.top_category_id,
             "top_category_name": composition.top_category_name,
             "accountability": list(composition.accountability),
+            # The report blocks (ago 2026): domain-measured, client-rendered.
+            # Additive on purpose — older stored reviews simply lack them and
+            # the client renders what is there.
+            "date_from": composition.date_from,
+            "date_to": composition.date_to,
+            "movements": composition.movements,
+            "by_day": list(composition.by_day),
+            "top_categories": list(composition.top_categories),
+            "biggest_merchant": composition.biggest_merchant,
+            "cap": composition.cap,
+            "goal": composition.goal,
         }
 
         output = AgentOutput(
