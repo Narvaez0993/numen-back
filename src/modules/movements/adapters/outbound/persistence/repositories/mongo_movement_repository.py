@@ -188,14 +188,28 @@ class MongoMovementRepository:
         category_id: str | None,
         limit: int,
     ) -> list[MerchantSpend]:
-        pipeline: list[dict[str, Any]] = [
+        return await self._merchants(
             {
-                "$match": {
-                    **self._range_match(user_id, date_from, date_to),
-                    "type": "expense",
-                    "category_id": category_id,
-                }
+                **self._range_match(user_id, date_from, date_to),
+                "type": "expense",
+                "category_id": category_id,
             },
+            limit,
+        )
+
+    async def top_merchants_overall(
+        self, user_id: UUID, date_from: str, date_to: str, limit: int
+    ) -> list[MerchantSpend]:
+        # No category in the match: this one ranks the whole period's expenses.
+        return await self._merchants(
+            {**self._range_match(user_id, date_from, date_to), "type": "expense"},
+            limit,
+        )
+
+    @staticmethod
+    async def _merchants(match: dict[str, Any], limit: int) -> list[MerchantSpend]:
+        pipeline: list[dict[str, Any]] = [
+            {"$match": match},
             # Newest first, so `$first` below picks the spelling the user typed last.
             {"$sort": {"occurred_on": -1}},
             {

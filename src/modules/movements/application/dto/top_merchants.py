@@ -15,6 +15,15 @@ class TopMerchantsInputDTO(BaseModel):
     limit: int = 5
 
 
+class OverallTopMerchantsInputDTO(BaseModel):
+    """The whole period, category-blind — no `category_id` to mis-read."""
+
+    user_id: UUID
+    date_from: str
+    date_to: str
+    limit: int = 5
+
+
 class MerchantSpendDTO(BaseModel):
     label: str
     spent: int
