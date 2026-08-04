@@ -5,12 +5,14 @@ from uuid import UUID
 
 from src.modules.assistant.application.ports.budgets_reader import (
     BudgetsView,
+    CapView,
     CategoryCapView,
 )
 from src.modules.assistant.application.ports.goals_reader import GoalView
 from src.modules.assistant.application.ports.movements_reader import (
     CategorySpendView,
     DaySpendView,
+    MerchantView,
     PeriodSummaryView,
 )
 from src.modules.assistant.application.ports.subscriptions_reader import UpcomingChargeView
@@ -154,6 +156,67 @@ def test_accountability_echoes_last_weeks_plays_with_current_states() -> None:
     )
 
 
+# --- the report blocks: domain-measured, frozen into the payload ---
+
+
+def test_the_review_freezes_the_weeks_report_blocks() -> None:
+    """The review is a report, not a sentence: days, categories, merchant, cap
+    and goal travel as data the client renders — the LLM narrates nothing here."""
+    result = compose_weekly(
+        facts(
+            days=(DaySpendView(day="2026-07-28", spent=90_000, count=1),),
+            top_merchant=MerchantView(label="Exito", spent=120_000, count=3),
+            budgets=BudgetsView(
+                period="2026-08",
+                days_left=28,
+                month=CapView(
+                    id="b-m",
+                    target=3_000_000,
+                    spent=1_920_000,
+                    remaining=1_080_000,
+                    per_day=38_571,
+                    projected=None,
+                    over=None,
+                    used=0.64,
+                ),
+                categories=(),
+            ),
+        )
+    )
+
+    assert (result.date_from, result.date_to) == ("2026-07-27", "2026-08-02")
+    assert result.movements == 8
+    assert result.by_day == ({"day": "2026-07-28", "spent": 90_000},)
+    assert result.biggest_merchant == {"label": "Exito", "spent": 120_000}
+    assert result.cap == {"target": 3_000_000, "spent": 1_920_000, "used": 0.64}
+    assert result.goal == {
+        "name": "Viaje",
+        "saved": 3_000_000,
+        "target": 5_000_000,
+        "pct": 0.6,
+    }
+
+
+def test_top_categories_rank_the_week_and_keep_the_unclassified() -> None:
+    """Money the user chose not to label is still money that left — it rides
+    with id and name `None` instead of vanishing from the ranking."""
+    result = compose_weekly(facts())
+
+    assert result.top_categories == (
+        {"category_id": "comida", "name": "Comida", "spent": 220_000},
+        {"category_id": None, "name": None, "spent": 40_000},
+    )
+
+
+def test_a_bare_week_says_none_instead_of_inventing_blocks() -> None:
+    result = compose_weekly(facts(goals=()))
+
+    assert result.by_day == ()
+    assert result.biggest_merchant is None
+    assert result.cap is None
+    assert result.goal is None
+
+
 # --- the plays, by priority ---
 
 
@@ -252,7 +315,12 @@ class StubMovementsReader:
     async def spend_by_day(
         self, user_id: UUID, date_from: str, date_to: str
     ) -> tuple[DaySpendView, ...]:
-        return ()
+        return (DaySpendView(day=date_from, spent=120_000, count=2),)
+
+    async def top_merchants(
+        self, user_id: UUID, date_from: str, date_to: str, limit: int
+    ) -> tuple[MerchantView, ...]:
+        return (MerchantView(label="Café Tostao", spent=50_000, count=2),)[:limit]
 
 
 class StubBudgetsReader:
@@ -363,6 +431,24 @@ async def test_weekly_review_lands_with_diagnosis_plays_and_accountability() -> 
     actions = [p.action for p in stored.plays]
     assert "contribute_goal" in actions
     assert "treat" in actions  # clean week, real slack
+    # The report blocks land frozen, read from the same sources as the facts.
+    assert (stored.payload["date_from"], stored.payload["date_to"]) == (
+        "2026-07-27",
+        "2026-08-02",
+    )
+    assert stored.payload["movements"] == 8
+    assert stored.payload["by_day"] == [{"day": "2026-07-27", "spent": 120_000}]
+    assert stored.payload["top_categories"] == [
+        {"category_id": "comida", "name": "Comida", "spent": 220_000}
+    ]
+    assert stored.payload["biggest_merchant"] == {"label": "Café Tostao", "spent": 50_000}
+    assert stored.payload["cap"] is None  # the stub user set no ceiling
+    assert stored.payload["goal"] == {
+        "name": "Viaje",
+        "saved": 3_000_000,
+        "target": 5_000_000,
+        "pct": 0.6,
+    }
 
 
 async def test_thin_weeks_skip_without_touching_the_model() -> None:

@@ -293,6 +293,9 @@ from src.modules.movements.application.use_cases.get_daily_spend import (
 from src.modules.movements.application.use_cases.get_goal_funds import (
     GetGoalFundsUseCase,
 )
+from src.modules.movements.application.use_cases.get_overall_top_merchants import (
+    GetOverallTopMerchantsUseCase,
+)
 from src.modules.movements.application.use_cases.get_top_merchants import (
     GetTopMerchantsUseCase,
 )
@@ -614,6 +617,9 @@ def build_container(settings: Settings | None = None) -> Container:
     get_top_merchants_use_case = GetTopMerchantsUseCase(
         movement_repository=movement_repository,
     )
+    get_overall_top_merchants_use_case = GetOverallTopMerchantsUseCase(
+        movement_repository=movement_repository,
+    )
     get_daily_spend_use_case = GetDailySpendUseCase(
         movement_repository=movement_repository,
     )
@@ -757,7 +763,7 @@ def build_container(settings: Settings | None = None) -> Container:
     assistant_movements_reader: AssistantMovementsReader = MovementsMovementsReader(
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
-        get_top_merchants=get_top_merchants_use_case,
+        get_top_merchants=get_overall_top_merchants_use_case,
         get_daily_spend=get_daily_spend_use_case,
     )
     assistant_budgets_reader: AssistantBudgetsReader = BudgetsBudgetsReader(

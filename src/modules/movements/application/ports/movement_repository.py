@@ -120,6 +120,15 @@ class MovementRepository(Protocol):
         """
         ...
 
+    async def top_merchants_overall(
+        self, user_id: UUID, date_from: str, date_to: str, limit: int
+    ) -> list[MerchantSpend]:
+        """Where the period's money went, category-blind — the weekly review's
+        biggest merchant. A separate question on purpose: overloading
+        `category_id=None` above would silently rank only the unclassified
+        bucket, which is exactly the bug this method exists to prevent."""
+        ...
+
     async def goal_funds(self, user_id: UUID) -> list[GoalFunds]:
         """Per goal: transfers in minus out, and the day of the first contribution."""
         ...
