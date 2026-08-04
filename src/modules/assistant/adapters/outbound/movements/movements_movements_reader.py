@@ -11,9 +11,11 @@ from src.modules.assistant.application.ports.movements_reader import (
 from src.modules.movements.application.dto.daily_spend import DailySpendInputDTO
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
 from src.modules.movements.application.dto.movement_summary import SummarizeMovementsInputDTO
-from src.modules.movements.application.dto.top_merchants import TopMerchantsInputDTO
+from src.modules.movements.application.dto.top_merchants import OverallTopMerchantsInputDTO
 from src.modules.movements.application.use_cases.get_daily_spend import GetDailySpendUseCase
-from src.modules.movements.application.use_cases.get_top_merchants import GetTopMerchantsUseCase
+from src.modules.movements.application.use_cases.get_overall_top_merchants import (
+    GetOverallTopMerchantsUseCase,
+)
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.modules.movements.application.use_cases.summarize_movements import (
     SummarizeMovementsUseCase,
@@ -26,7 +28,10 @@ class MovementsMovementsReader:
 
     summarize_movements: SummarizeMovementsUseCase
     list_movements: ListMovementsUseCase
-    get_top_merchants: GetTopMerchantsUseCase
+    # The overall variant on purpose: this reader's `top_merchants` means the
+    # whole period, and the sibling use case's `category_id=None` means the
+    # unclassified bucket — wiring that one here ranked "Vario" over Éxito.
+    get_top_merchants: GetOverallTopMerchantsUseCase
     get_daily_spend: GetDailySpendUseCase
 
     async def summary(self, user_id: UUID, date_from: str, date_to: str) -> PeriodSummaryView:
@@ -65,7 +70,9 @@ class MovementsMovementsReader:
         self, user_id: UUID, date_from: str, date_to: str, limit: int
     ) -> tuple[MerchantView, ...]:
         output = await self.get_top_merchants.execute(
-            TopMerchantsInputDTO(user_id=user_id, date_from=date_from, date_to=date_to, limit=limit)
+            OverallTopMerchantsInputDTO(
+                user_id=user_id, date_from=date_from, date_to=date_to, limit=limit
+            )
         )
         return tuple(
             MerchantView(label=m.label, spent=m.spent, count=m.count) for m in output.merchants
