@@ -5,7 +5,7 @@ model call. Money rules mirror the chat's."""
 import pytest
 
 from src.modules.assistant.application.dto.parse import ParseCaptureInputDTO
-from src.modules.assistant.application.ports.agent_model import ToolCall
+from src.modules.assistant.application.ports.agent_model import FORCE_ANY_TOOL, ToolCall
 from src.modules.assistant.application.use_cases.parse_capture import ParseCaptureUseCase
 from src.modules.assistant.domain.errors import RegistrationLimitReachedError
 
@@ -19,6 +19,7 @@ from .fakes import (
     FakeActionLog,
     FakeAgentModel,
     FakeCategoriesReader,
+    FakeDebtDrafts,
     FakeDrafts,
     FakeUnitOfWork,
     FakeUsageCounters,
@@ -34,12 +35,14 @@ def use_case(
     usage: FakeUsageCounters | None = None,
 ) -> tuple[ParseCaptureUseCase, FakeDrafts, FakeUsageCounters, FakeActionLog]:
     drafts = FakeDrafts()
+    debt_drafts = FakeDebtDrafts()
     usage = usage or FakeUsageCounters()
     action_log = FakeActionLog()
     case = ParseCaptureUseCase(
         agent_model=model,
         tool_registry=registry(),
         drafts=drafts,
+        debt_drafts=debt_drafts,
         usage_counters=usage,
         action_log=action_log,
         unit_of_work=FakeUnitOfWork(),
@@ -85,15 +88,56 @@ async def test_the_happy_path_is_one_forced_call() -> None:
 
     output = await case.execute(parse_input())
 
-    assert output.draft is not None
+    assert len(output.drafts) == 1
     assert output.clarification is None
-    assert output.draft.amount == 25_000
+    assert output.drafts[0].amount == 25_000
     assert drafts.saved[0].captured_via == "voice"
     assert usage.consumed == [{"registrations": 1, "messages": 0}]
     assert output.usage.registrations.used == 1
-    assert model.requests[0]["force_tool"] == "stage_movement_draft"
+    # Forced to stage SOMETHING, not forced to stage a movement: which capture the
+    # sentence is belongs to the model. Naming one tool here is what used to turn
+    # "le presté 50 mil a Andrés" into an expense.
+    assert model.requests[0]["force_tool"] == FORCE_ANY_TOOL
     assert log.entries[0].action == "parse_voice"
     assert log.entries[0].calls == 1
+
+
+@pytest.mark.asyncio
+async def test_one_breath_with_three_expenses_stages_three_drafts() -> None:
+    """«10 mil en café, 5 mil en papitas, 8 mil en un mouse» is three movements,
+    not one. The model stages them as parallel calls in a single turn — running
+    only the first is how the other two used to disappear."""
+    spoken = [("Café", "10000"), ("Papitas", "5000"), ("Mouse", "8000")]
+    model = FakeAgentModel(
+        [
+            turn(
+                tool_calls=tuple(
+                    ToolCall(
+                        id=f"c{index}",
+                        name="stage_movement_draft",
+                        arguments={
+                            "type": "expense",
+                            "amount": amount,
+                            "description": description,
+                            "source_id": ACCOUNT_ID,
+                        },
+                    )
+                    for index, (description, amount) in enumerate(spoken)
+                )
+            )
+        ]
+    )
+    case, drafts, usage, _ = use_case(model)
+
+    output = await case.execute(parse_input("10 mil en café, 5 mil en papitas y 8 mil en un mouse"))
+
+    assert [draft.description for draft in output.drafts] == ["Café", "Papitas", "Mouse"]
+    assert [draft.amount for draft in output.drafts] == [10_000, 5_000, 8_000]
+    assert len(drafts.saved) == 3
+    # Three movements recorded is three registrations — the quota counts what
+    # landed in the ledger, not how many times the user pressed the mic.
+    assert usage.consumed == [{"registrations": 3, "messages": 0}]
+    assert output.usage.registrations.used == 3
 
 
 @pytest.mark.asyncio
@@ -118,7 +162,7 @@ async def test_an_ambiguous_capture_becomes_one_free_question() -> None:
 
     output = await case.execute(parse_input("pagué 25"))
 
-    assert output.draft is None
+    assert output.drafts == []
     assert output.clarification == "¿De qué cuenta salió la plata?"
     assert drafts.saved == []
     assert usage.consumed == []  # a question is not a captured movement
@@ -132,7 +176,7 @@ async def test_the_model_can_self_correct_on_the_free_call() -> None:
 
     output = await case.execute(parse_input())
 
-    assert output.draft is not None
+    assert len(output.drafts) == 1
     assert len(drafts.saved) == 1
     assert usage.consumed == [{"registrations": 1, "messages": 0}]
 

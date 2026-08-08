@@ -12,34 +12,29 @@ MAX_AMOUNT = 10**15
 
 
 @dataclass(frozen=True)
-class Payment:
-    """A partial repayment. No account reference on purpose: a debt is a parallel
-    ledger, so a payment marks progress on it and never moves a balance."""
-
-    id: str
-    amount: int
-    paid_on: str
-    note: str | None
-
-    @classmethod
-    def create(cls, *, amount: int, paid_on: str, note: str | None) -> "Payment":
-        return cls(id=str(uuid4()), amount=amount, paid_on=paid_on, note=note)
-
-
-@dataclass(frozen=True)
 class Debt:
-    """Money between the user and a person — a **record**, never a transaction.
+    """Money between the user and a person: the **agreement**, and only that.
 
-    It does not create movements and does not touch balances: the month's spending is
-    what left the user's pocket (cash-basis), and what a friend still owes them is not
-    money they have — *"no estamos contando con plata que no tenemos"*. If the cash
-    really moved, editing the account balance moves the anchor, which exists exactly
-    for outside effects.
+    What is owed lives here because it is a fact of the deal — plenty of debts never
+    moved any cash at all, like a dinner split where the bill already left as one
+    expense. What has been *paid* does not live here: repayments are the transfers
+    that carried them, read back through `SettlementReader`. Storing both would let
+    them disagree, and the prototype's persisted `balance` died of exactly that.
+
+    Lending itself is not spending. Cash becomes a claim and the user is no poorer,
+    so the money travels as a transfer between an account and this debt and the
+    month's expenses do not move. An expense appears only when the debt is written
+    off — the moment the loss is real.
+
+    `written_off_on` is the one thing about that moment that IS stored, and on
+    purpose: giving up is a decision about the agreement, like the due date, not a
+    quantity that could drift. The money it costs stays derived — it is the expense
+    movement the write-off recorded, and a claim that moved no cash (a dinner split)
+    records none, because that loss was already paid when the bill was.
 
     `direction` reads from the user's side: `incoming` = they owe me, `outgoing` =
-    I owe them. What is left (`paid_total`, `remaining`, the status) is **derived** in
-    `status.py`, never persisted — the prototype stored a `balance` and that is the
-    kind of field that goes stale.
+    I owe them. What is left (`remaining`, the status) is **derived** in `status.py`
+    from the debt plus what came back.
     """
 
     id: str
@@ -55,7 +50,9 @@ class Debt:
     note: str | None
     event_id: str | None
     """The shared event this debt was split from; `None` for a one-on-one debt."""
-    payments: tuple[Payment, ...] = field(default_factory=tuple)
+    written_off_on: str | None = None
+    """`YYYY-MM-DD` the user gave up on it, or nothing. Terminal: it beats every
+    other status, because nothing is coming and the calendar stopped mattering."""
     created_at: datetime = field(default_factory=datetime.now)
 
     @classmethod
@@ -72,6 +69,8 @@ class Debt:
         event_id: str | None,
         created_at: datetime,
     ) -> "Debt":
+        # A fresh debt is never written off — you cannot give up on a deal you are
+        # in the act of making.
         return cls(
             id=str(uuid4()),
             user_id=user_id,
@@ -82,15 +81,8 @@ class Debt:
             due_on=due_on,
             note=note,
             event_id=event_id,
-            payments=(),
             created_at=created_at,
         )
-
-    def with_payment(self, payment: Payment) -> "Debt":
-        return replace(self, payments=(*self.payments, payment))
-
-    def without_payment(self, payment_id: str) -> "Debt":
-        return replace(self, payments=tuple(p for p in self.payments if p.id != payment_id))
 
     def with_changes(self, **changes: object) -> "Debt":
         """A patched copy. Frozen on purpose: an edit produces a new value."""

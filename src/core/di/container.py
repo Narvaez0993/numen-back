@@ -40,6 +40,10 @@ from src.modules.assistant.adapters.outbound.budgets.budgets_budgets_reader impo
 from src.modules.assistant.adapters.outbound.categories.categories_categories_reader import (
     CategoriesCategoriesReader,
 )
+from src.modules.assistant.adapters.outbound.debts.debts_debt_payment_recorder import (
+    DebtsDebtPaymentRecorder,
+)
+from src.modules.assistant.adapters.outbound.debts.debts_debt_recorder import DebtsDebtRecorder
 from src.modules.assistant.adapters.outbound.debts.debts_debts_reader import DebtsDebtsReader
 from src.modules.assistant.adapters.outbound.goals.goals_goal_contributor import (
     GoalsGoalContributor,
@@ -59,6 +63,9 @@ from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_agen
 )
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_chat_messages import (
     MongoChatMessageRepository,
+)
+from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_debt_drafts import (
+    MongoDebtDraftRepository,
 )
 from src.modules.assistant.adapters.outbound.persistence.repositories.mongo_dismissals import (
     MongoInsightDismissals,
@@ -88,6 +95,13 @@ from src.modules.assistant.application.ports.categories_reader import (
     CategoriesReader as AssistantCategoriesReader,
 )
 from src.modules.assistant.application.ports.chat_message_repository import ChatMessageRepository
+from src.modules.assistant.application.ports.debt_draft_repository import DebtDraftRepository
+from src.modules.assistant.application.ports.debt_payment_recorder import (
+    DebtPaymentRecorder as AssistantDebtPaymentRecorder,
+)
+from src.modules.assistant.application.ports.debt_recorder import (
+    DebtRecorder as AssistantDebtRecorder,
+)
 from src.modules.assistant.application.ports.debts_reader import (
     DebtsReader as AssistantDebtsReader,
 )
@@ -117,7 +131,13 @@ from src.modules.assistant.application.use_cases.compose_monthly_summary import 
 from src.modules.assistant.application.use_cases.compose_weekly_review import (
     ComposeWeeklyReviewUseCase,
 )
+from src.modules.assistant.application.use_cases.confirm_debt_draft import (
+    ConfirmDebtDraftUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
+from src.modules.assistant.application.use_cases.discard_debt_draft import (
+    DiscardDebtDraftUseCase,
+)
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import DismissInsightUseCase
 from src.modules.assistant.application.use_cases.dismiss_output import DismissOutputUseCase
@@ -210,6 +230,9 @@ from src.modules.categories.application.use_cases.create_category import CreateC
 from src.modules.categories.application.use_cases.delete_category import DeleteCategoryUseCase
 from src.modules.categories.application.use_cases.list_categories import ListCategoriesUseCase
 from src.modules.categories.application.use_cases.update_category import UpdateCategoryUseCase
+from src.modules.debts.adapters.outbound.ledger.movements_transfer_recorder import (
+    MovementsTransferRecorder as DebtsTransferRecorder,
+)
 from src.modules.debts.adapters.outbound.persistence.repositories.mongo_counterparty_repository import (  # noqa: E501
     MongoCounterpartyRepository,
 )
@@ -219,11 +242,18 @@ from src.modules.debts.adapters.outbound.persistence.repositories.mongo_debt_rep
 from src.modules.debts.adapters.outbound.persistence.repositories.mongo_shared_event_repository import (  # noqa: E501
     MongoSharedEventRepository,
 )
+from src.modules.debts.adapters.outbound.settlements.movements_settlement_reader import (
+    MovementsSettlementReader,
+)
 from src.modules.debts.application.ports.counterparty_repository import (
     CounterpartyRepository,
 )
 from src.modules.debts.application.ports.debt_repository import DebtRepository
 from src.modules.debts.application.ports.event_repository import EventRepository
+from src.modules.debts.application.ports.settlement_reader import SettlementReader
+from src.modules.debts.application.ports.transfer_recorder import (
+    TransferRecorder as DebtTransferRecorder,
+)
 from src.modules.debts.application.services.counterparty_resolver import (
     CounterpartyResolver,
 )
@@ -238,7 +268,9 @@ from src.modules.debts.application.use_cases.get_debts_snapshot import (
     GetDebtsSnapshotUseCase,
 )
 from src.modules.debts.application.use_cases.remove_payment import RemovePaymentUseCase
+from src.modules.debts.application.use_cases.reopen_debt import ReopenDebtUseCase
 from src.modules.debts.application.use_cases.update_debt import UpdateDebtUseCase
+from src.modules.debts.application.use_cases.write_off_debt import WriteOffDebtUseCase
 from src.modules.goals.adapters.outbound.funds.movements_funds_reader import (
     MovementsFundsReader,
 )
@@ -266,6 +298,9 @@ from src.modules.movements.adapters.outbound.catalog.categories_category_lookup 
 from src.modules.movements.adapters.outbound.ledger.accounts_source_ledger import (
     AccountsSourceLedger,
 )
+from src.modules.movements.adapters.outbound.ledger.debts_claim_ledger import (
+    DebtsClaimLedger,
+)
 from src.modules.movements.adapters.outbound.ledger.goals_pocket_ledger import (
     GoalsPocketLedger,
 )
@@ -289,6 +324,9 @@ from src.modules.movements.application.use_cases.create_movement import CreateMo
 from src.modules.movements.application.use_cases.delete_movement import DeleteMovementUseCase
 from src.modules.movements.application.use_cases.get_daily_spend import (
     GetDailySpendUseCase,
+)
+from src.modules.movements.application.use_cases.get_debt_transfers import (
+    GetDebtTransfersUseCase,
 )
 from src.modules.movements.application.use_cases.get_goal_funds import (
     GetGoalFundsUseCase,
@@ -483,6 +521,8 @@ class Container:
     delete_debt_use_case: DeleteDebtUseCase
     add_payment_use_case: AddPaymentUseCase
     remove_payment_use_case: RemovePaymentUseCase
+    write_off_debt_use_case: WriteOffDebtUseCase
+    reopen_debt_use_case: ReopenDebtUseCase
 
     # Goals
     goal_repository: GoalRepository
@@ -527,6 +567,7 @@ class Container:
     # Assistant — the agent: model port, tools over the other modules, ledgers
     chat_message_repository: ChatMessageRepository
     movement_draft_repository: DraftRepository
+    debt_draft_repository: DebtDraftRepository
     assistant_usage_counters: UsageCounters
     assistant_insight_dismissals: InsightDismissals
     assistant_agent_outputs: AgentOutputRepository
@@ -543,12 +584,16 @@ class Container:
     assistant_subscriptions_reader: AssistantSubscriptionsReader
     assistant_categories_reader: AssistantCategoriesReader
     assistant_movement_recorder: AssistantMovementRecorder
+    assistant_debt_recorder: AssistantDebtRecorder
+    assistant_debt_payment_recorder: AssistantDebtPaymentRecorder
     assistant_tool_registry: ToolRegistry
     send_chat_message_use_case: SendChatMessageUseCase
     parse_capture_use_case: ParseCaptureUseCase
     get_chat_history_use_case: GetChatHistoryUseCase
     confirm_draft_use_case: ConfirmDraftUseCase
     discard_draft_use_case: DiscardDraftUseCase
+    confirm_debt_draft_use_case: ConfirmDebtDraftUseCase
+    discard_debt_draft_use_case: DiscardDebtDraftUseCase
     get_assistant_usage_use_case: GetUsageUseCase
     get_assistant_feed_use_case: GetAssistantFeedUseCase
     dismiss_insight_use_case: DismissInsightUseCase
@@ -587,14 +632,17 @@ def build_container(settings: Settings | None = None) -> Container:
     movement_repository: MovementRepository = MongoMovementRepository()
     idempotency_store: IdempotencyStore = MongoIdempotencyStore()
     goal_repository: GoalRepository = MongoGoalRepository()
-    # One ledger over every endpoint kind: accounts and cards move for real, a pocket
-    # is a no-op leg because its money is the sum of the movements themselves.
+    debt_repository: DebtRepository = MongoDebtRepository()
+    # One ledger over every endpoint kind: accounts and cards move for real; a pocket
+    # and a claim are no-op legs, because their money is the sum of the movements
+    # themselves and there is no stored balance that could drift.
     source_ledger: SourceLedger = RoutingSourceLedger(
         accounts=AccountsSourceLedger(
             account_repository=account_repository,
             credit_card_repository=credit_card_repository,
         ),
         goals=GoalsPocketLedger(goal_repository=goal_repository),
+        debts=DebtsClaimLedger(debt_repository=debt_repository),
     )
     category_lookup: CategoryLookup = CategoriesCategoryLookup(
         category_repository=category_repository,
@@ -626,6 +674,13 @@ def build_container(settings: Settings | None = None) -> Container:
     get_goal_funds_use_case = GetGoalFundsUseCase(
         movement_repository=movement_repository,
     )
+    # What a debt has been paid is read from the transfers themselves, so this only
+    # needs the repository — which is why it can be built before the write side.
+    debt_settlement_reader: SettlementReader = MovementsSettlementReader(
+        get_debt_transfers=GetDebtTransfersUseCase(
+            movement_repository=movement_repository,
+        ),
+    )
     balance_reader: BalanceReader = AccountsBalanceReader(
         accounts_overview=accounts_overview_use_case,
     )
@@ -651,7 +706,6 @@ def build_container(settings: Settings | None = None) -> Container:
         spend_reader=budget_spend_reader,
     )
 
-    debt_repository: DebtRepository = MongoDebtRepository()
     counterparty_repository: CounterpartyRepository = MongoCounterpartyRepository()
     event_repository: EventRepository = MongoSharedEventRepository()
     counterparty_resolver = CounterpartyResolver(
@@ -661,8 +715,12 @@ def build_container(settings: Settings | None = None) -> Container:
         debt_repository=debt_repository,
         counterparty_repository=counterparty_repository,
         event_repository=event_repository,
+        settlement_reader=debt_settlement_reader,
     )
-    get_debt_totals_use_case = GetDebtTotalsUseCase(debt_repository=debt_repository)
+    get_debt_totals_use_case = GetDebtTotalsUseCase(
+        debt_repository=debt_repository,
+        settlement_reader=debt_settlement_reader,
+    )
 
     goal_funds_reader: FundsReader = MovementsFundsReader(
         get_goal_funds=get_goal_funds_use_case,
@@ -703,8 +761,20 @@ def build_container(settings: Settings | None = None) -> Container:
     expense_recorder: ExpenseRecorder = MovementsExpenseRecorder(
         create_movement=create_movement_use_case,
     )
+    delete_movement_use_case = DeleteMovementUseCase(
+        movement_repository=movement_repository,
+        source_ledger=source_ledger,
+        unit_of_work=unit_of_work,
+    )
     goal_transfer_recorder: TransferRecorder = MovementsTransferRecorder(
         create_movement=create_movement_use_case,
+    )
+    # Lending crosses between an account and a debt through the same use case as any
+    # movement, so it inherits the cash-basis deltas — and counts as neither expense
+    # nor income, which is the whole point.
+    debt_transfer_recorder: DebtTransferRecorder = DebtsTransferRecorder(
+        create_movement=create_movement_use_case,
+        delete_movement=delete_movement_use_case,
     )
     charge_settlement = ChargeSettlement(
         charge_repository=charge_repository,
@@ -746,6 +816,7 @@ def build_container(settings: Settings | None = None) -> Container:
 
     chat_message_repository: ChatMessageRepository = MongoChatMessageRepository()
     movement_draft_repository: DraftRepository = MongoMovementDraftRepository()
+    debt_draft_repository: DebtDraftRepository = MongoDebtDraftRepository()
     assistant_usage_counters: UsageCounters = MongoAIUsageCounters()
     assistant_insight_dismissals: InsightDismissals = MongoInsightDismissals()
     assistant_agent_outputs: AgentOutputRepository = MongoAgentOutputs()
@@ -784,6 +855,27 @@ def build_container(settings: Settings | None = None) -> Container:
     )
     assistant_movement_recorder: AssistantMovementRecorder = MovementsMovementRecorder(
         create_movement=create_movement_use_case,
+    )
+    # A debt captured by voice goes through the same door as one typed in Deudas: the
+    # person is resolved once, and the loan leaves the account as a real transfer.
+    # Which is why creating a debt is built here rather than inline below — two
+    # callers now, and building it twice would be two doors pretending to be one.
+    create_debt_use_case = CreateDebtUseCase(
+        debt_repository=debt_repository,
+        counterparty_resolver=counterparty_resolver,
+        transfer_recorder=debt_transfer_recorder,
+        unit_of_work=unit_of_work,
+    )
+    assistant_debt_recorder: AssistantDebtRecorder = DebtsDebtRecorder(
+        create_debt=create_debt_use_case,
+    )
+    add_payment_use_case = AddPaymentUseCase(
+        debt_repository=debt_repository,
+        settlement_reader=debt_settlement_reader,
+        transfer_recorder=debt_transfer_recorder,
+    )
+    assistant_debt_payment_recorder: AssistantDebtPaymentRecorder = DebtsDebtPaymentRecorder(
+        add_payment=add_payment_use_case,
     )
     assistant_tool_registry = ToolRegistry(
         accounts=assistant_accounts_reader,
@@ -977,11 +1069,7 @@ def build_container(settings: Settings | None = None) -> Container:
             unit_of_work=unit_of_work,
             clock=clock,
         ),
-        delete_movement_use_case=DeleteMovementUseCase(
-            movement_repository=movement_repository,
-            source_ledger=source_ledger,
-            unit_of_work=unit_of_work,
-        ),
+        delete_movement_use_case=delete_movement_use_case,
         summarize_movements_use_case=summarize_movements_use_case,
         get_top_merchants_use_case=get_top_merchants_use_case,
         get_daily_spend_use_case=get_daily_spend_use_case,
@@ -999,10 +1087,7 @@ def build_container(settings: Settings | None = None) -> Container:
         event_repository=event_repository,
         get_debts_snapshot_use_case=get_debts_snapshot_use_case,
         get_debt_totals_use_case=get_debt_totals_use_case,
-        create_debt_use_case=CreateDebtUseCase(
-            debt_repository=debt_repository,
-            counterparty_resolver=counterparty_resolver,
-        ),
+        create_debt_use_case=create_debt_use_case,
         create_shared_event_use_case=CreateSharedEventUseCase(
             debt_repository=debt_repository,
             event_repository=event_repository,
@@ -1011,13 +1096,32 @@ def build_container(settings: Settings | None = None) -> Container:
             unit_of_work=unit_of_work,
             snapshot=get_debts_snapshot_use_case,
         ),
-        update_debt_use_case=UpdateDebtUseCase(debt_repository=debt_repository),
+        update_debt_use_case=UpdateDebtUseCase(
+            debt_repository=debt_repository,
+            settlement_reader=debt_settlement_reader,
+        ),
         delete_debt_use_case=DeleteDebtUseCase(
             debt_repository=debt_repository,
             event_repository=event_repository,
+            settlement_reader=debt_settlement_reader,
+            transfer_recorder=debt_transfer_recorder,
         ),
-        add_payment_use_case=AddPaymentUseCase(debt_repository=debt_repository),
-        remove_payment_use_case=RemovePaymentUseCase(debt_repository=debt_repository),
+        add_payment_use_case=add_payment_use_case,
+        remove_payment_use_case=RemovePaymentUseCase(
+            debt_repository=debt_repository,
+            settlement_reader=debt_settlement_reader,
+            transfer_recorder=debt_transfer_recorder,
+        ),
+        write_off_debt_use_case=WriteOffDebtUseCase(
+            debt_repository=debt_repository,
+            settlement_reader=debt_settlement_reader,
+            transfer_recorder=debt_transfer_recorder,
+        ),
+        reopen_debt_use_case=ReopenDebtUseCase(
+            debt_repository=debt_repository,
+            settlement_reader=debt_settlement_reader,
+            transfer_recorder=debt_transfer_recorder,
+        ),
         goal_repository=goal_repository,
         goal_funds_reader=goal_funds_reader,
         goal_transfer_recorder=goal_transfer_recorder,
@@ -1090,6 +1194,7 @@ def build_container(settings: Settings | None = None) -> Container:
         top_goal_reader=top_goal_reader,
         chat_message_repository=chat_message_repository,
         movement_draft_repository=movement_draft_repository,
+        debt_draft_repository=debt_draft_repository,
         assistant_usage_counters=assistant_usage_counters,
         assistant_insight_dismissals=assistant_insight_dismissals,
         assistant_agent_outputs=assistant_agent_outputs,
@@ -1106,12 +1211,15 @@ def build_container(settings: Settings | None = None) -> Container:
         assistant_subscriptions_reader=assistant_subscriptions_reader,
         assistant_categories_reader=assistant_categories_reader,
         assistant_movement_recorder=assistant_movement_recorder,
+        assistant_debt_recorder=assistant_debt_recorder,
+        assistant_debt_payment_recorder=assistant_debt_payment_recorder,
         assistant_tool_registry=assistant_tool_registry,
         send_chat_message_use_case=SendChatMessageUseCase(
             agent_model=assistant_agent_model,
             tool_registry=assistant_tool_registry,
             chat_messages=chat_message_repository,
             drafts=movement_draft_repository,
+            debt_drafts=debt_draft_repository,
             usage_counters=assistant_usage_counters,
             action_log=assistant_action_log,
             unit_of_work=unit_of_work,
@@ -1127,6 +1235,7 @@ def build_container(settings: Settings | None = None) -> Container:
             agent_model=assistant_agent_model,
             tool_registry=assistant_tool_registry,
             drafts=movement_draft_repository,
+            debt_drafts=debt_draft_repository,
             usage_counters=assistant_usage_counters,
             action_log=assistant_action_log,
             unit_of_work=unit_of_work,
@@ -1146,6 +1255,14 @@ def build_container(settings: Settings | None = None) -> Container:
         ),
         discard_draft_use_case=DiscardDraftUseCase(
             drafts=movement_draft_repository,
+        ),
+        confirm_debt_draft_use_case=ConfirmDebtDraftUseCase(
+            debt_drafts=debt_draft_repository,
+            debt_recorder=assistant_debt_recorder,
+            payment_recorder=assistant_debt_payment_recorder,
+        ),
+        discard_debt_draft_use_case=DiscardDebtDraftUseCase(
+            debt_drafts=debt_draft_repository,
         ),
         get_assistant_usage_use_case=GetUsageUseCase(
             usage_counters=assistant_usage_counters,

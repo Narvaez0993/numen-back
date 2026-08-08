@@ -4,15 +4,15 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 MovementType = Literal["expense", "income", "transfer"]
-SourceType = Literal["account", "credit_card", "goal"]
+SourceType = Literal["account", "credit_card", "goal", "debt"]
 CapturedVia = Literal["manual", "voice", "photo", "text", "recurring"]
 
 ALLOWED_TYPES: frozenset[str] = frozenset({"expense", "income", "transfer"})
-ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card", "goal"})
-# What a REQUEST may name. `goal` is deliberately absent: pocket transfers are minted
-# only by the goals module through its recorder port (the `subscription_id` precedent),
-# and the HTTP schemas enforce it — the generic movement form can never write into a
-# pocket by accident.
+ALLOWED_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card", "goal", "debt"})
+# What a REQUEST may name. `goal` and `debt` are deliberately absent: both are minted
+# only by their owning module through its recorder port (the `subscription_id`
+# precedent), and the HTTP schemas enforce it — the generic movement form can never
+# write into a pocket, or into someone's IOU, by accident.
 REQUEST_SOURCE_TYPES: frozenset[str] = frozenset({"account", "credit_card"})
 ALLOWED_CAPTURED_VIA: frozenset[str] = frozenset({"manual", "voice", "photo", "text", "recurring"})
 MAX_DESCRIPTION_LENGTH = 80
@@ -22,12 +22,17 @@ MAX_AMOUNT = 10**15
 
 @dataclass(frozen=True)
 class SourceRef:
-    """Where the money sits: an account, a credit card, or a goal's pocket.
+    """Where the money sits: an account, a credit card, a goal's pocket, or a debt.
 
     Several collections hold sources, so a reference needs both parts. Movements only
-    ever carry the reference — resolving it is the ledger's job. A `goal` ref is valid
-    **only as a transfer endpoint**: pockets hold set-aside money, so nothing is spent
-    or earned in one directly.
+    ever carry the reference — resolving it is the ledger's job. `goal` and `debt` refs
+    are valid **only as transfer endpoints**: a pocket holds set-aside money and a debt
+    holds money someone owes, so nothing is spent or earned in either directly.
+
+    A debt as an endpoint is what makes lending honest. Handing a friend $5.000 is not
+    an expense — you swapped cash for a claim and are no poorer for it — so the money
+    moves from an account into the debt and the month's spending does not budge. It
+    becomes an expense only if the debt is written off, which is when the loss is real.
     """
 
     type: SourceType

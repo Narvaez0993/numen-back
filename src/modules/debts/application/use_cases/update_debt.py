@@ -3,7 +3,11 @@ from dataclasses import dataclass
 from src.modules.debts.application.dto.debt import DebtDTO
 from src.modules.debts.application.dto.debt_commands import UpdateDebtInputDTO
 from src.modules.debts.application.ports.debt_repository import DebtRepository
-from src.modules.debts.domain import status as debt_status
+from src.modules.debts.application.ports.settlement_reader import (
+    NO_SETTLEMENT,
+    SettlementReader,
+)
+from src.modules.debts.application.services import settlement as settlement_service
 from src.modules.debts.domain.entities.debt import Debt
 from src.modules.debts.domain.errors import DebtNotFoundError, InvalidDebtError
 from src.modules.debts.domain.validation import ensure_amount, ensure_due_on, ensure_note
@@ -19,22 +23,26 @@ class UpdateDebtUseCase:
     """
 
     debt_repository: DebtRepository
+    settlement_reader: SettlementReader
 
     async def execute(self, input_dto: UpdateDebtInputDTO) -> DebtDTO:
         debt = await self.debt_repository.find(input_dto.user_id, input_dto.debt_id)
         if debt is None:
             raise DebtNotFoundError()
 
-        updated = self._patched(debt, input_dto)
+        settlements = await self.settlement_reader.settlements(input_dto.user_id)
+        settlement = settlements.get(debt.id, NO_SETTLEMENT)
+
+        updated = self._patched(debt, input_dto, settlement_service.repaid(debt, settlement))
         await self.debt_repository.save(updated)
-        return DebtDTO.from_domain(updated, input_dto.today)
+        return DebtDTO.from_domain(updated, settlement, input_dto.today)
 
     @staticmethod
-    def _patched(debt: Debt, input_dto: UpdateDebtInputDTO) -> Debt:
+    def _patched(debt: Debt, input_dto: UpdateDebtInputDTO, repaid: int) -> Debt:
         changes: dict[str, object] = {}
         if input_dto.amount is not None:
             amount = ensure_amount(input_dto.amount)
-            if amount < debt_status.paid_total(debt):
+            if amount < repaid:
                 raise InvalidDebtError("The amount cannot be below what was already paid")
             changes["amount"] = amount
         if input_dto.clear_due_on:

@@ -80,6 +80,33 @@ class DraftNotPendingError(ConflictError):
         super().__init__("This draft was already confirmed or discarded")
 
 
+class DebtPaymentAccountRequiredError(ValidationError):
+    code: ClassVar[str] = "assistant.debt_payment_account_required"
+
+    def __init__(self) -> None:
+        # A loan may honestly have moved no cash; a repayment never can. "No money
+        # moved" is not an answer to being paid back, it is a contradiction.
+        super().__init__("A debt payment has to name the account the money moves on")
+
+
+class DebtPaymentTargetRequiredError(ValidationError):
+    code: ClassVar[str] = "assistant.debt_payment_target_required"
+
+    def __init__(self) -> None:
+        super().__init__("A debt payment has to name the debt it pays down")
+
+
+class DraftSourceRequiredError(ValidationError):
+    code: ClassVar[str] = "assistant.draft_source_required"
+
+    def __init__(self) -> None:
+        # The agent is allowed not to know where the money came from — it is not
+        # allowed to guess. When the capture never said it and the user owns more
+        # than one source, the draft is staged without one and the confirm card
+        # asks. Confirming is the point where an answer becomes mandatory.
+        super().__init__("Pick the account or card the money moves from")
+
+
 class DuplicateMessageError(ConflictError):
     code: ClassVar[str] = "assistant.duplicate_message"
 
