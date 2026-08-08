@@ -34,22 +34,27 @@ from .fakes import (
     CURRENCY,
     TODAY,
     FakeCounterpartyRepository,
+    FakeDebtLedger,
     FakeDebtRepository,
     FakeEventRepository,
+    ImmediateUnitOfWork,
     counterparty,
     debt,
     new_user_id,
-    payment,
+    settled,
 )
 
 
 def creator(
     debts: FakeDebtRepository,
     people: FakeCounterpartyRepository,
+    ledger: FakeDebtLedger | None = None,
 ) -> CreateDebtUseCase:
     return CreateDebtUseCase(
         debt_repository=debts,
         counterparty_resolver=CounterpartyResolver(counterparty_repository=people),
+        transfer_recorder=ledger or FakeDebtLedger(),
+        unit_of_work=ImmediateUnitOfWork(),
     )
 
 
@@ -149,51 +154,91 @@ async def test_payments_accumulate_and_the_exact_one_settles() -> None:
     user_id = new_user_id()
     existing = debt(user_id=user_id, amount=120_000)
     debts = FakeDebtRepository([existing])
-    pay = AddPaymentUseCase(debt_repository=debts)
+    ledger = FakeDebtLedger()
+    pay = AddPaymentUseCase(
+        debt_repository=debts, settlement_reader=ledger, transfer_recorder=ledger
+    )
 
     first = await pay.execute(
-        AddPaymentInputDTO(user_id=user_id, debt_id=existing.id, today=TODAY, amount=45_000)
+        AddPaymentInputDTO(
+            user_id=user_id, debt_id=existing.id, today=TODAY, amount=45_000, account_id="nequi"
+        )
     )
-    assert (first.status, first.remaining) == ("partial", 75_000)
+    assert (first.debt.status, first.debt.remaining) == ("partial", 75_000)
 
     second = await pay.execute(
-        AddPaymentInputDTO(user_id=user_id, debt_id=existing.id, today=TODAY, amount=75_000)
+        AddPaymentInputDTO(
+            user_id=user_id, debt_id=existing.id, today=TODAY, amount=75_000, account_id="nequi"
+        )
     )
-    assert (second.status, second.remaining) == ("paid", 0)
+    assert (second.debt.status, second.debt.remaining) == ("paid", 0)
+    # Both landed as real transfers into the account, not as notes on the debt.
+    assert [entry["direction"] for entry in ledger.recorded] == ["in", "in"]
 
 
 @pytest.mark.asyncio
 async def test_overpaying_is_rejected_not_clamped() -> None:
     user_id = new_user_id()
-    existing = debt(user_id=user_id, amount=120_000, payments=(payment(amount=100_000),))
-    pay = AddPaymentUseCase(debt_repository=FakeDebtRepository([existing]))
+    existing = debt(user_id=user_id, amount=120_000)
+    ledger = FakeDebtLedger()
+    ledger.seed(settled(existing, instalments=(100_000,)))
+    pay = AddPaymentUseCase(
+        debt_repository=FakeDebtRepository([existing]),
+        settlement_reader=ledger,
+        transfer_recorder=ledger,
+    )
 
     with pytest.raises(OverpaidError):
         await pay.execute(
-            AddPaymentInputDTO(user_id=user_id, debt_id=existing.id, today=TODAY, amount=20_001)
+            AddPaymentInputDTO(
+                user_id=user_id,
+                debt_id=existing.id,
+                today=TODAY,
+                amount=20_001,
+                account_id="nequi",
+            )
         )
+    # Rejected before anything moved: no half-applied repayment left behind.
+    assert ledger.recorded == []
 
 
 @pytest.mark.asyncio
 async def test_removing_a_payment_raises_what_is_owed_again() -> None:
     user_id = new_user_id()
-    typo = payment(amount=90_000)
-    existing = debt(user_id=user_id, amount=120_000, payments=(typo,))
+    existing = debt(user_id=user_id, amount=120_000)
     debts = FakeDebtRepository([existing])
+    ledger = FakeDebtLedger()
+    typo = await ledger.record(
+        debt_id=existing.id,
+        amount=90_000,
+        direction="in",
+        occurred_on=TODAY,
+        description="Abono",
+    )
 
-    output = await RemovePaymentUseCase(debt_repository=debts).execute(
-        RemovePaymentInputDTO(user_id=user_id, debt_id=existing.id, payment_id=typo.id, today=TODAY)
+    output = await RemovePaymentUseCase(
+        debt_repository=debts, settlement_reader=ledger, transfer_recorder=ledger
+    ).execute(
+        RemovePaymentInputDTO(
+            user_id=user_id, debt_id=existing.id, payment_id=typo.movement_id, today=TODAY
+        )
     )
 
     assert output.remaining == 120_000
     assert output.status == "pending"
+    # Undo means deleting the movement — the account gets its money back too.
+    assert ledger.reverted == [typo.movement_id]
 
 
 @pytest.mark.asyncio
 async def test_the_amount_cannot_sink_below_what_was_paid() -> None:
     user_id = new_user_id()
-    existing = debt(user_id=user_id, amount=120_000, payments=(payment(amount=100_000),))
-    update = UpdateDebtUseCase(debt_repository=FakeDebtRepository([existing]))
+    existing = debt(user_id=user_id, amount=120_000)
+    ledger = FakeDebtLedger()
+    ledger.seed(settled(existing, instalments=(100_000,)))
+    update = UpdateDebtUseCase(
+        debt_repository=FakeDebtRepository([existing]), settlement_reader=ledger
+    )
 
     with pytest.raises(InvalidDebtError):
         await update.execute(
@@ -215,9 +260,12 @@ async def test_deleting_the_last_debt_takes_the_orphan_event_with_it() -> None:
     debts = FakeDebtRepository([last])
     events = FakeEventRepository([event])
 
-    await DeleteDebtUseCase(debt_repository=debts, event_repository=events).execute(
-        DeleteDebtInputDTO(user_id=user_id, debt_id=last.id)
-    )
+    await DeleteDebtUseCase(
+        debt_repository=debts,
+        event_repository=events,
+        settlement_reader=FakeDebtLedger(),
+        transfer_recorder=FakeDebtLedger(),
+    ).execute(DeleteDebtInputDTO(user_id=user_id, debt_id=last.id))
 
     assert await events.list_by_user(user_id) == []
 
@@ -237,9 +285,12 @@ async def test_deleting_one_of_several_keeps_the_event() -> None:
     debts = FakeDebtRepository([one, other])
     events = FakeEventRepository([event])
 
-    await DeleteDebtUseCase(debt_repository=debts, event_repository=events).execute(
-        DeleteDebtInputDTO(user_id=user_id, debt_id=one.id)
-    )
+    await DeleteDebtUseCase(
+        debt_repository=debts,
+        event_repository=events,
+        settlement_reader=FakeDebtLedger(),
+        transfer_recorder=FakeDebtLedger(),
+    ).execute(DeleteDebtInputDTO(user_id=user_id, debt_id=one.id))
 
     assert len(await events.list_by_user(user_id)) == 1
 
@@ -247,11 +298,89 @@ async def test_deleting_one_of_several_keeps_the_event() -> None:
 @pytest.mark.asyncio
 async def test_someone_elses_debt_does_not_exist() -> None:
     existing = debt(user_id=new_user_id())
-    pay = AddPaymentUseCase(debt_repository=FakeDebtRepository([existing]))
+    ledger = FakeDebtLedger()
+    pay = AddPaymentUseCase(
+        debt_repository=FakeDebtRepository([existing]),
+        settlement_reader=ledger,
+        transfer_recorder=ledger,
+    )
 
     with pytest.raises(DebtNotFoundError):
         await pay.execute(
             AddPaymentInputDTO(
-                user_id=new_user_id(), debt_id=existing.id, today=TODAY, amount=1_000
+                user_id=new_user_id(),
+                debt_id=existing.id,
+                today=TODAY,
+                amount=1_000,
+                account_id="nequi",
             )
         )
+
+
+@pytest.mark.asyncio
+async def test_a_loan_whose_transfer_fails_leaves_no_debt_behind() -> None:
+    """Half of this pair is worse than neither: a debt whose loan never landed shows
+    a friend owing money that never left the account.
+
+    This shipped. A routing bug made the transfer 404 after the debt was saved, and
+    the user tapped Confirmar ten times — ten phantom loans, none of which had moved
+    a peso. The unit of work is what makes the retry harmless.
+    """
+    from .fakes import FailingLedger, RollingBackUnitOfWork
+
+    debts = FakeDebtRepository()
+    user_id = new_user_id()
+    create = CreateDebtUseCase(
+        debt_repository=debts,
+        counterparty_resolver=CounterpartyResolver(
+            counterparty_repository=FakeCounterpartyRepository()
+        ),
+        transfer_recorder=FailingLedger(),
+        unit_of_work=RollingBackUnitOfWork(debts),
+    )
+
+    for _ in range(3):
+        with pytest.raises(RuntimeError):
+            await create.execute(
+                CreateDebtInputDTO(
+                    user_id=user_id,
+                    currency=CURRENCY,
+                    today=TODAY,
+                    direction="incoming",
+                    counterparty_name="Santiago",
+                    amount=5_000,
+                    account_id="nequi",
+                )
+            )
+
+    assert await debts.list_by_user(user_id) == []
+
+
+@pytest.mark.asyncio
+async def test_the_debt_and_its_loan_are_written_as_one_unit() -> None:
+    unit_of_work = ImmediateUnitOfWork()
+    debts = FakeDebtRepository()
+    ledger = FakeDebtLedger()
+    create = CreateDebtUseCase(
+        debt_repository=debts,
+        counterparty_resolver=CounterpartyResolver(
+            counterparty_repository=FakeCounterpartyRepository()
+        ),
+        transfer_recorder=ledger,
+        unit_of_work=unit_of_work,
+    )
+
+    await create.execute(
+        CreateDebtInputDTO(
+            user_id=new_user_id(),
+            currency=CURRENCY,
+            today=TODAY,
+            direction="incoming",
+            counterparty_name="Santiago",
+            amount=5_000,
+            account_id="nequi",
+        )
+    )
+
+    assert unit_of_work.calls == 1
+    assert len(ledger.recorded) == 1

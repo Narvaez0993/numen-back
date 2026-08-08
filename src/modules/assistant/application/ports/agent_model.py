@@ -8,7 +8,7 @@ both directions and converts provider failures into `AgentUnavailableError`.
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, Protocol
+from typing import Any, Final, Literal, Protocol
 
 
 @dataclass(frozen=True)
@@ -79,6 +79,16 @@ class ModelTurn:
     """Echo this back on the assistant `ModelMessage` when continuing the turn."""
 
 
+FORCE_ANY_TOOL: Final[str] = "__any__"
+"""Force a tool call without naming which one.
+
+Capture needs exactly this: the model MUST stage something rather than chat, but
+whether the sentence is a movement or a debt is its read, not ours. Naming one tool
+would decide that in advance — which is how "le presté 50 mil a Andrés" used to
+become an expense.
+"""
+
+
 class AgentModel(Protocol):
     async def respond(
         self,
@@ -87,4 +97,6 @@ class AgentModel(Protocol):
         messages: Sequence[ModelMessage],
         tools: Sequence[ToolSpec],
         force_tool: str | None = None,
-    ) -> ModelTurn: ...
+    ) -> ModelTurn:
+        """`force_tool` takes a tool name, `FORCE_ANY_TOOL`, or nothing."""
+        ...

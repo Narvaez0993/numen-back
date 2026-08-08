@@ -4,17 +4,32 @@ The coherence table is the interesting part — each type demands a different sh
 
 | type       | source            | destination      | category    |
 |------------|-------------------|------------------|-------------|
-| `expense`  | required, no goal | forbidden        | optional    |
-| `income`   | required, account | forbidden        | optional    |
-| `transfer` | required          | required, differs| forbidden   |
+| type       | source              | destination      | category    |
+|------------|---------------------|------------------|-------------|
+| `expense`  | required, held-aside forbidden | forbidden | optional |
+| `income`   | required, account   | forbidden        | optional    |
+| `transfer` | required            | required, differs| forbidden   |
 
 `income` is restricted to accounts in v1: money arriving on a card is a refund, a
 niche case that already has an exit (adjusting the debt by hand in Accounts moves
 the anchor correctly).
 
-A `goal` is a pocket of set-aside money, so it can only be a **transfer endpoint**
-(money in, money out) and never both ends at once: you cannot spend from a pocket
-or move between pockets — withdrawing to an account first is the honest path.
+A `goal` (a pocket you promised yourself) and a `debt` (a claim on someone else) both
+hold money **aside** rather than hold it, so each can only be a **transfer endpoint**
+(money in, money out) and never both ends at once: you cannot spend from a pocket or
+lend straight out of an IOU — passing through a real account first is the honest path.
+
+That is what makes lending truthful. Handing a friend money is not spending it: cash
+becomes a claim and you are no poorer, so it travels as a transfer and the month's
+expenses do not move. The expense appears only if the debt is written off — the moment
+the loss actually happens.
+
+Which is the one exception below: an `expense` **out of a debt** is that write-off, and
+the only way the loss can be booked without touching an account that was already
+debited when the money was lent. A goal has no such moment — you cannot lose a pocket
+of your own money — so it stays a transfer endpoint and nothing else. No HTTP request
+can reach this shape either: `REQUEST_SOURCE_TYPES` excludes `debt`, so only the debts
+module can mint it, through its port.
 """
 
 from datetime import date, timedelta
@@ -32,6 +47,11 @@ from src.modules.movements.domain.entities.movement import (
     SourceType,
 )
 from src.modules.movements.domain.errors import InvalidMovementError
+
+#: Sources that hold money aside instead of holding it: a pocket you promised
+#: yourself, and a claim on someone else. Neither is a place you spend from or
+#: earn into — money only ever *passes* between them and a real account.
+_HELD_ASIDE: frozenset[str] = frozenset({"goal", "debt"})
 
 
 def ensure_type(raw: str) -> MovementType:
@@ -105,13 +125,21 @@ def ensure_shape(
             raise InvalidMovementError("A transfer needs two different sources")
         if category_id is not None:
             raise InvalidMovementError("A transfer does not take a category")
-        if source.type == "goal" and destination.type == "goal":
-            raise InvalidMovementError("A transfer cannot run between two goals")
+        # Both ends held aside is not a move of the user's cash, it is bookkeeping
+        # between two ledgers — and there is no honest balance to debit.
+        if source.type in _HELD_ASIDE and destination.type in _HELD_ASIDE:
+            raise InvalidMovementError(
+                "A transfer needs a real account or card on at least one end"
+            )
         return
 
     if destination is not None:
         raise InvalidMovementError(f"A {movement_type} does not take a destination")
-    if source.type == "goal":
-        raise InvalidMovementError("A goal can only be a transfer endpoint")
+    # The write-off: giving up on a claim IS the expense, and it comes out of the
+    # claim, not out of an account the money already left.
+    if source.type == "debt" and movement_type == "expense":
+        return
+    if source.type in _HELD_ASIDE:
+        raise InvalidMovementError(f"A {source.type} can only be a transfer endpoint")
     if movement_type == "income" and source.type != "account":
         raise InvalidMovementError("Income can only arrive on an account")

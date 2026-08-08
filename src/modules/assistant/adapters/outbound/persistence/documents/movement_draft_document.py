@@ -15,8 +15,8 @@ class MovementDraftDocument(Document):
     type: str
     description: str
     amount: int
-    source_type: str
-    source_id: str
+    source_type: str | None
+    source_id: str | None
     destination_type: str | None = None
     destination_id: str | None = None
     category_id: str | None = None

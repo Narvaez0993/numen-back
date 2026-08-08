@@ -12,7 +12,7 @@ from src.modules.assistant.application.dto.draft_commands import (
 )
 from src.modules.assistant.application.ports.draft_repository import DraftRepository
 from src.modules.assistant.application.ports.movement_recorder import MovementRecorder
-from src.modules.assistant.domain.errors import DraftNotFoundError
+from src.modules.assistant.domain.errors import DraftNotFoundError, DraftSourceRequiredError
 
 _OVERRIDABLE = (
     "type",
@@ -37,6 +37,12 @@ class ConfirmDraftUseCase:
             raise DraftNotFoundError()
 
         edited = draft.apply_overrides(_overrides_from(input_dto))
+        if edited.source_id is None or edited.source_type is None:
+            # A staged draft may not know where the money came from; a movement
+            # never may. The card asks, and the answer arrives as an override —
+            # so this only fires when the client tried to confirm around it.
+            raise DraftSourceRequiredError()
+
         recorded = await self.movement_recorder.record(
             user_id=edited.user_id,
             currency=edited.currency,

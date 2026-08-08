@@ -15,6 +15,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 
+from src.modules.assistant.application.dto.debt_draft import DebtDraftDTO
 from src.modules.assistant.application.dto.draft import DraftDTO
 
 # The only places a navigate chip may point at. Expo-router routes that exist
@@ -95,8 +96,19 @@ class DraftRefBlock(BaseModel):
     draft_id: str = Field(min_length=1, max_length=64)
 
 
+class DebtDraftRefBlock(BaseModel):
+    """The debt twin of `DraftRefBlock`. Its own type rather than a flag on that
+    one: the card it renders asks different questions — which person, which account
+    — and a client switching on `type` should not have to guess which."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["debt_draft"]
+    debt_draft_id: str = Field(min_length=1, max_length=64)
+
+
 LlmBlock = Annotated[
-    TextBlock | StatBlock | ChartBlock | NavigateBlock | DraftRefBlock,
+    TextBlock | StatBlock | ChartBlock | NavigateBlock | DraftRefBlock | DebtDraftRefBlock,
     Field(discriminator="type"),
 ]
 
@@ -120,7 +132,16 @@ class DraftBlock(BaseModel):
     draft: DraftDTO
 
 
+class DebtDraftBlock(BaseModel):
+    """The hydrated twin of `DebtDraftRefBlock` — HTTP responses only."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    type: Literal["debt_draft"]
+    debt_draft: DebtDraftDTO
+
+
 ApiBlock = Annotated[
-    TextBlock | StatBlock | ChartBlock | NavigateBlock | DraftBlock,
+    TextBlock | StatBlock | ChartBlock | NavigateBlock | DraftBlock | DebtDraftBlock,
     Field(discriminator="type"),
 ]

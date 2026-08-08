@@ -3,12 +3,18 @@ from uuid import UUID
 
 from src.modules.debts.adapters.outbound.persistence.documents.debt_document import (
     DebtDocument,
-    PaymentEntry,
 )
-from src.modules.debts.domain.entities.debt import Debt, Direction, Payment
+from src.modules.debts.domain.entities.debt import Debt, Direction
 
 
 class DebtMapper:
+    """The stored debt is the agreement only.
+
+    Repayments used to be embedded here. They are transfers now, read back through
+    `SettlementReader`, so this mapper deliberately neither reads nor writes them —
+    a stored copy is exactly the second source of truth the move was meant to kill.
+    """
+
     @staticmethod
     def to_domain(doc: DebtDocument) -> Debt:
         return Debt(
@@ -21,10 +27,7 @@ class DebtMapper:
             due_on=doc.due_on,
             note=doc.note,
             event_id=doc.event_id,
-            payments=tuple(
-                Payment(id=p.id, amount=p.amount, paid_on=p.paid_on, note=p.note)
-                for p in doc.payments
-            ),
+            written_off_on=doc.written_off_on,
             created_at=doc.created_at,
         )
 
@@ -40,9 +43,6 @@ class DebtMapper:
             due_on=debt.due_on,
             note=debt.note,
             event_id=debt.event_id,
-            payments=[
-                PaymentEntry(id=p.id, amount=p.amount, paid_on=p.paid_on, note=p.note)
-                for p in debt.payments
-            ],
+            written_off_on=debt.written_off_on,
             created_at=debt.created_at,
         )

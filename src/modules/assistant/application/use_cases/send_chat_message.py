@@ -16,6 +16,7 @@ from uuid import uuid4
 from pydantic import ValidationError as PydanticValidationError
 
 from src.modules.assistant.application.dto.blocks import (
+    DebtDraftRefBlock,
     DraftRefBlock,
     LlmBlock,
     RespondWithBlocksInput,
@@ -43,6 +44,7 @@ from src.modules.assistant.application.ports.chat_message_repository import (
     ChatMessageRepository,
     StoredChatMessage,
 )
+from src.modules.assistant.application.ports.debt_draft_repository import DebtDraftRepository
 from src.modules.assistant.application.ports.draft_repository import DraftRepository
 from src.modules.assistant.application.ports.usage_counters import UsageCounters, UsageView
 from src.modules.assistant.application.pricing import ModelPricing, PlanLimits
@@ -54,6 +56,7 @@ from src.modules.assistant.application.services.tool_registry import (
     ToolContext,
     ToolRegistry,
 )
+from src.modules.assistant.domain.entities.debt_draft import DebtDraft
 from src.modules.assistant.domain.entities.movement_draft import MovementDraft
 from src.modules.assistant.domain.errors import (
     AgentProtocolError,
@@ -81,6 +84,7 @@ class _Tally:
 class _LoopOutcome:
     blocks: tuple[LlmBlock, ...]
     staged: tuple[MovementDraft, ...]
+    staged_debts: tuple[DebtDraft, ...]
     read_tools_used: bool
     charged: bool
     """False when we answered with a canned line (refusal / protocol fallback):
@@ -93,6 +97,7 @@ class SendChatMessageUseCase:
     tool_registry: ToolRegistry
     chat_messages: ChatMessageRepository
     drafts: DraftRepository
+    debt_drafts: DebtDraftRepository
     usage_counters: UsageCounters
     action_log: ActionLog
     unit_of_work: UnitOfWork
@@ -149,15 +154,25 @@ class SendChatMessageUseCase:
             raise
 
         kept_ids = {block.draft_id for block in outcome.blocks if isinstance(block, DraftRefBlock)}
+        kept_debt_ids = {
+            block.debt_draft_id for block in outcome.blocks if isinstance(block, DebtDraftRefBlock)
+        }
         drafts_to_persist = (
             [draft for draft in outcome.staged if draft.id in kept_ids] if outcome.charged else []
+        )
+        # Same rule as movements: a draft the answer never showed is a draft the user
+        # never saw, and persisting it would leave an orphan card in nobody's history.
+        debt_drafts_to_persist = (
+            [draft for draft in outcome.staged_debts if draft.id in kept_debt_ids]
+            if outcome.charged
+            else []
         )
         has_data_blocks = any(
             block.type in {"stat", "chart", "navigate"} for block in outcome.blocks
         )
         consumption = (
             derive_consumption(
-                len(drafts_to_persist),
+                len(drafts_to_persist) + len(debt_drafts_to_persist),
                 read_tools_used=outcome.read_tools_used,
                 has_data_blocks=has_data_blocks,
             )
@@ -177,6 +192,8 @@ class SendChatMessageUseCase:
         async def commit() -> None:
             if drafts_to_persist:
                 await self.drafts.save_many(drafts_to_persist)
+            if debt_drafts_to_persist:
+                await self.debt_drafts.save_many(debt_drafts_to_persist)
             await self.chat_messages.append(assistant_message)
             if consumption.registrations or consumption.messages:
                 await self.usage_counters.consume(
@@ -190,11 +207,12 @@ class SendChatMessageUseCase:
         await self.action_log.record(self._log_entry(input_dto, period, tally, failed=False))
 
         drafts_by_id = {draft.id: draft for draft in drafts_to_persist}
+        debt_drafts_by_id = {draft.id: draft for draft in debt_drafts_to_persist}
         return ChatTurnOutputDTO(
             message=ChatMessageDTO(
                 id=assistant_message.id,
                 role="assistant",
-                blocks=hydrate_blocks(assistant_message.blocks, drafts_by_id),
+                blocks=hydrate_blocks(assistant_message.blocks, drafts_by_id, debt_drafts_by_id),
                 created_at=assistant_message.created_at,
             ),
             usage=UsageOutputDTO(
@@ -222,6 +240,7 @@ class SendChatMessageUseCase:
         system = prompt_builder.system_for(input_dto.language)
         specs = self.tool_registry.specs()
         staged: list[MovementDraft] = []
+        staged_debts: list[DebtDraft] = []
         read_tools_used = False
         retried_blocks = False
 
@@ -234,17 +253,25 @@ class SendChatMessageUseCase:
 
             if turn.stop_reason == "refusal":
                 return _loop_fallback(
-                    prompt_builder.refusal_text(input_dto.language), staged, read_tools_used
+                    prompt_builder.refusal_text(input_dto.language),
+                    staged,
+                    staged_debts,
+                    read_tools_used,
                 )
 
             final_call = next((c for c in turn.tool_calls if c.name == RESPOND_TOOL), None)
             if final_call is not None:
                 try:
                     parsed = RespondWithBlocksInput.model_validate(final_call.arguments)
-                    _ensure_draft_refs_exist(parsed.blocks, {draft.id for draft in staged})
+                    _ensure_draft_refs_exist(
+                        parsed.blocks,
+                        {draft.id for draft in staged},
+                        {draft.id for draft in staged_debts},
+                    )
                     return _LoopOutcome(
                         blocks=tuple(parsed.blocks),
                         staged=tuple(staged),
+                        staged_debts=tuple(staged_debts),
                         read_tools_used=read_tools_used,
                         charged=True,
                     )
@@ -288,13 +315,19 @@ class SendChatMessageUseCase:
                     return _loop_fallback(
                         prompt_builder.fallback_text(input_dto.language),
                         staged,
+                        staged_debts,
                         read_tools_used,
                     )
-                salvaged = _parse_blocks_from_text(text, {draft.id for draft in staged})
+                salvaged = _parse_blocks_from_text(
+                    text,
+                    {draft.id for draft in staged},
+                    {draft.id for draft in staged_debts},
+                )
                 if salvaged is not None:
                     return _LoopOutcome(
                         blocks=salvaged,
                         staged=tuple(staged),
+                        staged_debts=tuple(staged_debts),
                         read_tools_used=read_tools_used,
                         charged=True,
                     )
@@ -320,6 +353,7 @@ class SendChatMessageUseCase:
                 return _LoopOutcome(
                     blocks=(TextBlock(type="text", text=text[:2000]),),
                     staged=tuple(staged),
+                    staged_debts=tuple(staged_debts),
                     read_tools_used=read_tools_used,
                     charged=True,
                 )
@@ -340,11 +374,13 @@ class SendChatMessageUseCase:
                     today=input_dto.today,
                     registrations_used=registrations_used,
                     registrations_limit=registrations_limit,
-                    staged_count=len(staged),
+                    staged_count=len(staged) + len(staged_debts),
                 )
                 result = await self.tool_registry.execute(call, context)
                 if result.draft is not None:
                     staged.append(result.draft)
+                if result.debt_draft is not None:
+                    staged_debts.append(result.debt_draft)
                 if result.is_read:
                     read_tools_used = True
                 results.append(
@@ -355,7 +391,10 @@ class SendChatMessageUseCase:
             transcript.append(ModelMessage(role="user", tool_results=tuple(results)))
 
         return _loop_fallback(
-            prompt_builder.fallback_text(input_dto.language), staged, read_tools_used
+            prompt_builder.fallback_text(input_dto.language),
+            staged,
+            staged_debts,
+            read_tools_used,
         )
 
     async def _build_context(
@@ -392,10 +431,16 @@ class SendChatMessageUseCase:
         )
 
 
-def _loop_fallback(text: str, staged: list[MovementDraft], read_tools_used: bool) -> _LoopOutcome:
+def _loop_fallback(
+    text: str,
+    staged: list[MovementDraft],
+    staged_debts: list[DebtDraft],
+    read_tools_used: bool,
+) -> _LoopOutcome:
     return _LoopOutcome(
         blocks=(TextBlock(type="text", text=text),),
         staged=tuple(staged),
+        staged_debts=tuple(staged_debts),
         read_tools_used=read_tools_used,
         charged=False,
     )
@@ -422,13 +467,21 @@ def _render_history(messages: tuple[StoredChatMessage, ...]) -> list[ModelMessag
     return rendered
 
 
-def _ensure_draft_refs_exist(blocks: list[LlmBlock], known_ids: set[str]) -> None:
+def _ensure_draft_refs_exist(
+    blocks: list[LlmBlock], known_ids: set[str], known_debt_ids: set[str]
+) -> None:
     for block in blocks:
         if isinstance(block, DraftRefBlock) and block.draft_id not in known_ids:
             raise ValueError(f"draft block references unknown draft_id {block.draft_id!r}")
+        if isinstance(block, DebtDraftRefBlock) and block.debt_draft_id not in known_debt_ids:
+            raise ValueError(
+                f"debt_draft block references unknown debt_draft_id {block.debt_draft_id!r}"
+            )
 
 
-def _parse_blocks_from_text(text: str, known_draft_ids: set[str]) -> tuple[LlmBlock, ...] | None:
+def _parse_blocks_from_text(
+    text: str, known_draft_ids: set[str], known_debt_draft_ids: set[str]
+) -> tuple[LlmBlock, ...] | None:
     """Blocks the model wrote as prose instead of calling the tool — salvage them.
 
     Accepts the two shapes it produces: a bare JSON array of blocks, or the tool's
@@ -444,7 +497,7 @@ def _parse_blocks_from_text(text: str, known_draft_ids: set[str]) -> tuple[LlmBl
         return None
     try:
         validated = RespondWithBlocksInput.model_validate({"blocks": payload})
-        _ensure_draft_refs_exist(validated.blocks, known_draft_ids)
+        _ensure_draft_refs_exist(validated.blocks, known_draft_ids, known_debt_draft_ids)
     except (PydanticValidationError, ValueError):
         return None
     return tuple(validated.blocks)
