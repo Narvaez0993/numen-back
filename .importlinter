@@ -306,11 +306,17 @@ allow_indirect_imports = True
 # WHOLE module keeps out of its siblings (stronger than the hexagon-only contracts
 # above); only `overview` reads INTO it, by port. Indirect chains through the
 # composition root (router → get_container) are the usual sanctioned bridge.
-[importlinter:contract:debts-independent-of-siblings]
-name = debts — the module cannot import sibling modules
+# Lending moves real money: cash becomes a claim through a transfer, and what has
+# been repaid IS those transfers. The hexagon says so through `TransferRecorder` and
+# `SettlementReader`, and only the outermost adapters know that movements answers —
+# the same shape goals uses for a pocket. Before this, debts recorded and moved
+# nothing, so the whole module could be walled off; it cannot be any more.
+[importlinter:contract:debts-hexagon-independent-of-siblings]
+name = debts — the hexagon cannot import sibling modules (only its adapters may)
 type = forbidden
 source_modules =
-    src.modules.debts
+    src.modules.debts.domain
+    src.modules.debts.application
 forbidden_modules =
     src.modules.accounts
     src.modules.categories

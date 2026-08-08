@@ -27,6 +27,7 @@ from .fakes import (
     CURRENCY,
     TODAY,
     FakeCounterpartyRepository,
+    FakeDebtLedger,
     FakeDebtRepository,
     FakeEventRepository,
     ImmediateUnitOfWork,
@@ -43,10 +44,13 @@ def build(
     people = people or FakeCounterpartyRepository()
     events = events or FakeEventRepository()
     unit_of_work = ImmediateUnitOfWork()
+    # A split moves no cash — the bill already left as one expense — so the ledger
+    # is legitimately empty here.
     snapshot = GetDebtsSnapshotUseCase(
         debt_repository=debts,
         counterparty_repository=people,
         event_repository=events,
+        settlement_reader=FakeDebtLedger(),
     )
     use_case = CreateSharedEventUseCase(
         debt_repository=debts,
@@ -189,22 +193,19 @@ async def test_snapshot_totals_split_by_direction_and_skip_the_paid() -> None:
     await create(use_case, user_id=user_id)
 
     from .fakes import debt as make_debt
-    from .fakes import payment
+    from .fakes import settled
 
     await debts_repo.save(make_debt(user_id=user_id, direction="outgoing", amount=200_000))
-    await debts_repo.save(
-        make_debt(
-            user_id=user_id,
-            direction="incoming",
-            amount=50_000,
-            payments=(payment(amount=50_000),),
-        )
-    )
+    repaid_in_full = make_debt(user_id=user_id, direction="incoming", amount=50_000)
+    await debts_repo.save(repaid_in_full)
+    ledger = FakeDebtLedger()
+    ledger.seed(settled(repaid_in_full, instalments=(50_000,)))
 
     snapshot = GetDebtsSnapshotUseCase(
         debt_repository=debts_repo,
         counterparty_repository=FakeCounterpartyRepository(),
         event_repository=events_repo,
+        settlement_reader=ledger,
     )
     output = await snapshot.execute(
         DebtsSnapshotInputDTO(user_id=user_id, currency=CURRENCY, today=TODAY)

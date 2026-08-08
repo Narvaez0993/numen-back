@@ -1,7 +1,11 @@
 from dataclasses import dataclass
 from uuid import UUID
 
-from src.modules.assistant.application.ports.debts_reader import DebtsView, DebtView
+from src.modules.assistant.application.ports.debts_reader import (
+    DebtsView,
+    DebtView,
+    PersonView,
+)
 from src.modules.debts.application.use_cases.get_debts_snapshot import GetDebtsSnapshotUseCase
 
 
@@ -31,4 +35,5 @@ class DebtsDebtsReader:
                 )
                 for d in output.debts
             ),
+            people=tuple(PersonView(id=c.id, name=c.name) for c in output.counterparties),
         )

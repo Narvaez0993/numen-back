@@ -5,8 +5,11 @@ from src.modules.assistant.adapters.inbound.http.schemas import (
     ChatHistoryResponse,
     ChatRequest,
     ChatTurnResponse,
+    ConfirmDebtDraftRequest,
+    ConfirmDebtDraftResponse,
     ConfirmDraftRequest,
     ConfirmDraftResponse,
+    DiscardDebtDraftResponse,
     DiscardDraftResponse,
     DismissInsightRequest,
     FeedResponse,
@@ -16,6 +19,10 @@ from src.modules.assistant.adapters.inbound.http.schemas import (
     UsageResponse,
 )
 from src.modules.assistant.application.dto.chat import HistoryInputDTO, SendChatInputDTO
+from src.modules.assistant.application.dto.debt_draft_commands import (
+    ConfirmDebtDraftInputDTO,
+    DiscardDebtDraftInputDTO,
+)
 from src.modules.assistant.application.dto.draft_commands import (
     ConfirmDraftInputDTO,
     DiscardDraftInputDTO,
@@ -26,7 +33,13 @@ from src.modules.assistant.application.use_cases.apply_play import (
     ApplyPlayInputDTO,
     ApplyPlayUseCase,
 )
+from src.modules.assistant.application.use_cases.confirm_debt_draft import (
+    ConfirmDebtDraftUseCase,
+)
 from src.modules.assistant.application.use_cases.confirm_draft import ConfirmDraftUseCase
+from src.modules.assistant.application.use_cases.discard_debt_draft import (
+    DiscardDebtDraftUseCase,
+)
 from src.modules.assistant.application.use_cases.discard_draft import DiscardDraftUseCase
 from src.modules.assistant.application.use_cases.dismiss_insight import (
     DismissInsightInputDTO,
@@ -126,6 +139,18 @@ def _depends_confirm() -> ConfirmDraftUseCase:
     from src.core.di.container import get_container
 
     return get_container().confirm_draft_use_case
+
+
+def _depends_confirm_debt() -> ConfirmDebtDraftUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().confirm_debt_draft_use_case
+
+
+def _depends_discard_debt() -> DiscardDebtDraftUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().discard_debt_draft_use_case
 
 
 def _depends_discard() -> DiscardDraftUseCase:
@@ -231,6 +256,47 @@ async def discard_draft(
 ) -> DiscardDraftResponse:
     output = await use_case.execute(DiscardDraftInputDTO(user_id=caller.user_id, draft_id=draft_id))
     return DiscardDraftResponse(**output.model_dump())
+
+
+@router.post("/debt-drafts/{draft_id}/confirm", response_model=ConfirmDebtDraftResponse)
+async def confirm_debt_draft(
+    draft_id: str,
+    body: ConfirmDebtDraftRequest,
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: ConfirmDebtDraftUseCase = Depends(_depends_confirm_debt),
+) -> ConfirmDebtDraftResponse:
+    """Turns the staged debt into a real one — person resolved (or created) and, when
+    an account is named, the loan leaving it as a real transfer."""
+    output = await use_case.execute(
+        ConfirmDebtDraftInputDTO(
+            user_id=caller.user_id,
+            draft_id=draft_id,
+            today=resolve_today(today),
+            target_debt_id=body.target_debt_id,
+            direction=body.direction,
+            counterparty_id=body.counterparty_id,
+            counterparty_name=body.counterparty_name,
+            amount=body.amount,
+            account_id=body.account_id,
+            clear_account="account_id" in body.model_fields_set and body.account_id is None,
+            due_on=body.due_on,
+            note=body.note,
+        )
+    )
+    return ConfirmDebtDraftResponse(**output.model_dump())
+
+
+@router.post("/debt-drafts/{draft_id}/discard", response_model=DiscardDebtDraftResponse)
+async def discard_debt_draft(
+    draft_id: str,
+    caller: CallerContext = Depends(get_caller),
+    use_case: DiscardDebtDraftUseCase = Depends(_depends_discard_debt),
+) -> DiscardDebtDraftResponse:
+    output = await use_case.execute(
+        DiscardDebtDraftInputDTO(user_id=caller.user_id, draft_id=draft_id)
+    )
+    return DiscardDebtDraftResponse(**output.model_dump())
 
 
 @router.get("/feed", response_model=FeedResponse)

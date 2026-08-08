@@ -15,8 +15,10 @@ from src.modules.debts.application.dto.debt_commands import (
     DebtsSnapshotInputDTO,
     DeleteDebtInputDTO,
     RemovePaymentInputDTO,
+    ReopenDebtInputDTO,
     SplitInputDTO,
     UpdateDebtInputDTO,
+    WriteOffDebtInputDTO,
 )
 from src.modules.debts.application.use_cases.add_payment import AddPaymentUseCase
 from src.modules.debts.application.use_cases.create_debt import CreateDebtUseCase
@@ -28,7 +30,9 @@ from src.modules.debts.application.use_cases.get_debts_snapshot import (
     GetDebtsSnapshotUseCase,
 )
 from src.modules.debts.application.use_cases.remove_payment import RemovePaymentUseCase
+from src.modules.debts.application.use_cases.reopen_debt import ReopenDebtUseCase
 from src.modules.debts.application.use_cases.update_debt import UpdateDebtUseCase
+from src.modules.debts.application.use_cases.write_off_debt import WriteOffDebtUseCase
 from src.shared.adapters.inbound.http.dependencies import CallerContext, get_caller
 from src.shared.adapters.inbound.http.today import resolve_today
 
@@ -57,6 +61,18 @@ def _depends_update() -> UpdateDebtUseCase:
     from src.core.di.container import get_container
 
     return get_container().update_debt_use_case
+
+
+def _depends_write_off() -> WriteOffDebtUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().write_off_debt_use_case
+
+
+def _depends_reopen() -> ReopenDebtUseCase:
+    from src.core.di.container import get_container
+
+    return get_container().reopen_debt_use_case
 
 
 def _depends_delete() -> DeleteDebtUseCase:
@@ -113,6 +129,7 @@ async def create_debt(
             counterparty_id=body.counterparty_id,
             counterparty_name=body.counterparty_name,
             amount=body.amount,
+            account_id=body.account_id,
             due_on=body.due_on,
             note=body.note,
         )
@@ -202,10 +219,12 @@ async def add_payment(
             debt_id=debt_id,
             today=resolve_today(today),
             amount=body.amount,
+            account_id=body.account_id,
             note=body.note,
         )
     )
-    return DebtResponse(**output.model_dump())
+    # The screen redraws from the debt; the movement id is for callers that undo.
+    return DebtResponse(**output.debt.model_dump())
 
 
 @router.delete("/{debt_id}/payments/{payment_id}", response_model=DebtResponse)
@@ -224,5 +243,37 @@ async def remove_payment(
             payment_id=payment_id,
             today=resolve_today(today),
         )
+    )
+    return DebtResponse(**output.model_dump())
+
+
+@router.post("/{debt_id}/write-off", response_model=DebtResponse)
+async def write_off_debt(
+    debt_id: str,
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: WriteOffDebtUseCase = Depends(_depends_write_off),
+) -> DebtResponse:
+    """Gives up on money owed to the user, booking the loss as an expense today.
+
+    Only for `incoming` debts → otherwise `debts.not_writable_off`. No body: the only
+    input is the decision, and how much it costs is the ledger's to work out.
+    """
+    output = await use_case.execute(
+        WriteOffDebtInputDTO(user_id=caller.user_id, debt_id=debt_id, today=resolve_today(today))
+    )
+    return DebtResponse(**output.model_dump())
+
+
+@router.delete("/{debt_id}/write-off", response_model=DebtResponse)
+async def reopen_debt(
+    debt_id: str,
+    today: str | None = Query(default=None),
+    caller: CallerContext = Depends(get_caller),
+    use_case: ReopenDebtUseCase = Depends(_depends_reopen),
+) -> DebtResponse:
+    """They paid after all: the claim comes back and the loss expense is deleted."""
+    output = await use_case.execute(
+        ReopenDebtInputDTO(user_id=caller.user_id, debt_id=debt_id, today=resolve_today(today))
     )
     return DebtResponse(**output.model_dump())

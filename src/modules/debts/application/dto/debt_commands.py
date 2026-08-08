@@ -15,6 +15,10 @@ class CreateDebtInputDTO(BaseModel):
     counterparty_id: str | None = None
     counterparty_name: str | None = None
     amount: int
+    account_id: str | None = None
+    """The account the cash moved on, when it moved. Absent for a debt that never
+    shifted money — a dinner split records who owes what, and the bill already left
+    as one expense."""
     due_on: str | None = None
     note: str | None = None
 
@@ -59,17 +63,36 @@ class DeleteDebtInputDTO(BaseModel):
 
 
 class AddPaymentInputDTO(BaseModel):
+    """A repayment moves real cash, so it names the account it moves on."""
+
     user_id: UUID
     debt_id: str
     today: str
     amount: int
+    account_id: str
     note: str | None = None
 
 
 class RemovePaymentInputDTO(BaseModel):
+    """`payment_id` is the movement's id — a repayment IS its transfer."""
+
     user_id: UUID
     debt_id: str
     payment_id: str
+    today: str
+
+
+class WriteOffDebtInputDTO(BaseModel):
+    """`today` is the day the loss is booked — the expense lands in this month."""
+
+    user_id: UUID
+    debt_id: str
+    today: str
+
+
+class ReopenDebtInputDTO(BaseModel):
+    user_id: UUID
+    debt_id: str
     today: str
 
 

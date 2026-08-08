@@ -23,6 +23,9 @@ from src.modules.assistant.adapters.outbound.persistence.documents.agent_output_
 from src.modules.assistant.adapters.outbound.persistence.documents.chat_message_document import (
     ChatMessageDocument,
 )
+from src.modules.assistant.adapters.outbound.persistence.documents.debt_draft_document import (
+    DebtDraftDocument,
+)
 from src.modules.assistant.adapters.outbound.persistence.documents.dismissal_document import (
     InsightDismissalDocument,
 )
@@ -87,6 +90,7 @@ ALL_DOCUMENTS: list[type[Document]] = [
     SharedEventDocument,
     GoalDocument,
     ChatMessageDocument,
+    DebtDraftDocument,
     MovementDraftDocument,
     AIUsageCounterDocument,
     AIActionLogDocument,

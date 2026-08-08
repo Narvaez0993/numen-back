@@ -32,7 +32,13 @@ from src.modules.assistant.application.ports.agent_output_repository import (
 from src.modules.assistant.application.ports.budgets_reader import BudgetsView
 from src.modules.assistant.application.ports.categories_reader import CategoryView
 from src.modules.assistant.application.ports.chat_message_repository import StoredChatMessage
-from src.modules.assistant.application.ports.debts_reader import DebtsView
+from src.modules.assistant.application.ports.debt_payment_recorder import RecordedPayment
+from src.modules.assistant.application.ports.debt_recorder import RecordedDebt
+from src.modules.assistant.application.ports.debts_reader import (
+    DebtsView,
+    DebtView,
+    PersonView,
+)
 from src.modules.assistant.application.ports.goals_reader import GoalView
 from src.modules.assistant.application.ports.movement_recorder import RecordedMovement
 from src.modules.assistant.application.ports.movements_reader import (
@@ -54,6 +60,7 @@ from src.modules.assistant.domain.entities.agent_output import (
     AgentOutput,
     Play,
 )
+from src.modules.assistant.domain.entities.debt_draft import DebtDraft
 from src.modules.assistant.domain.entities.movement_draft import MovementDraft
 
 USER_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -202,6 +209,54 @@ class FakeDrafts:
         )
 
 
+class FakeDebtDrafts:
+    def __init__(self, drafts: list[DebtDraft] | None = None) -> None:
+        self.by_id: dict[str, DebtDraft] = {d.id: d for d in drafts or []}
+        self.saved: list[DebtDraft] = []
+
+    async def save(self, draft: DebtDraft) -> None:
+        self.by_id[draft.id] = draft
+        self.saved.append(draft)
+
+    async def save_many(self, drafts: Sequence[DebtDraft]) -> None:
+        for draft in drafts:
+            await self.save(draft)
+
+    async def find(self, user_id: UUID, draft_id: str) -> DebtDraft | None:
+        draft = self.by_id.get(draft_id)
+        return draft if draft is not None and draft.user_id == user_id else None
+
+    async def find_many(self, user_id: UUID, draft_ids: Sequence[str]) -> tuple[DebtDraft, ...]:
+        return tuple(
+            d for i in draft_ids if (d := self.by_id.get(i)) is not None and d.user_id == user_id
+        )
+
+
+class FakeDebtRecorder:
+    """Stands in for debts. Records what it was asked for so a test can assert the
+    thing that matters: the loan names an account (or honestly names none)."""
+
+    def __init__(self) -> None:
+        self.recorded: list[dict[str, object]] = []
+
+    async def record(self, **kwargs: object) -> RecordedDebt:
+        debt_id = f"debt-{len(self.recorded) + 1}"
+        self.recorded.append({**kwargs, "debt_id": debt_id})
+        return RecordedDebt(debt_id=debt_id)
+
+
+class FakeDebtPaymentRecorder:
+    """Stands in for debts' abono. Records the call so a test can assert the thing
+    that matters: WHICH debt was paid down, and that no new one was opened."""
+
+    def __init__(self) -> None:
+        self.recorded: list[dict[str, object]] = []
+
+    async def record(self, **kwargs: object) -> RecordedPayment:
+        self.recorded.append(kwargs)
+        return RecordedPayment(movement_id=f"mov-abono-{len(self.recorded)}")
+
+
 class FakeUsageCounters:
     def __init__(self, registrations_used: int = 0, messages_used: int = 0) -> None:
         self.view = UsageView(registrations_used=registrations_used, messages_used=messages_used)
@@ -249,9 +304,27 @@ CATEGORIES = (
 )
 
 
+SOLE_SOURCE_VIEW = AccountsView(
+    currency=CURRENCY,
+    net_balance=7_500_000,
+    debit_total=7_500_000,
+    cash_total=0,
+    card_debt_total=0,
+    accounts=(AccountView(id=ACCOUNT_ID, name="Nequi", kind="bank", balance=7_500_000),),
+    credit_cards=(),
+)
+
+
 class FakeAccountsReader:
     async def overview(self, user_id: UUID, currency: str) -> AccountsView:
         return ACCOUNTS_VIEW
+
+
+class FakeSoleSourceReader:
+    """A user who owns exactly one source: picking it is not a guess."""
+
+    async def overview(self, user_id: UUID, currency: str) -> AccountsView:
+        return SOLE_SOURCE_VIEW
 
 
 class FakeCategoriesReader:
@@ -299,8 +372,16 @@ class FakeGoalsReader:
 
 
 class FakeDebtsReader:
+    def __init__(
+        self,
+        people: tuple[PersonView, ...] = (),
+        debts: tuple[DebtView, ...] = (),
+    ) -> None:
+        self.people = people
+        self.debts = debts
+
     async def snapshot(self, user_id: UUID, currency: str, today: str) -> DebtsView:
-        return DebtsView(i_owe_total=0, owed_to_me_total=0, debts=())
+        return DebtsView(i_owe_total=0, owed_to_me_total=0, debts=self.debts, people=self.people)
 
 
 class FakeSubscriptionsReader:
@@ -322,13 +403,13 @@ class FakeMovementRecorder:
         return RecordedMovement(movement_id=f"mov-{len(self.recorded)}")
 
 
-def registry() -> ToolRegistry:
+def registry(accounts: Any | None = None, debts: Any | None = None) -> ToolRegistry:
     return ToolRegistry(
-        accounts=FakeAccountsReader(),
+        accounts=accounts or FakeAccountsReader(),
         movements=FakeMovementsReader(),
         budgets=FakeBudgetsReader(),
         goals=FakeGoalsReader(),
-        debts=FakeDebtsReader(),
+        debts=debts or FakeDebtsReader(),
         subscriptions=FakeSubscriptionsReader(),
         categories=FakeCategoriesReader(),
     )

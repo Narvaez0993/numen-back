@@ -4,15 +4,8 @@ from uuid import uuid4
 
 import pymongo
 from beanie import Document
-from pydantic import BaseModel, Field
+from pydantic import Field
 from pymongo import IndexModel
-
-
-class PaymentEntry(BaseModel):
-    id: str
-    amount: int
-    paid_on: str
-    note: str | None = None
 
 
 class DebtDocument(Document):
@@ -27,9 +20,12 @@ class DebtDocument(Document):
     due_on: str | None = None
     note: str | None = None
     event_id: str | None = None
-    # Embedded: payments only ever live with their debt, and a user's debts are dozens.
-    # What is left is DERIVED from these — no `balance` field, on purpose.
-    payments: list[PaymentEntry] = Field(default_factory=list)
+    # The day the user gave up on it, or null. The decision is stored; what it cost
+    # is not — that is the expense movement the write-off recorded.
+    written_off_on: str | None = None
+    # No `payments` and no `balance`, on purpose: repayments are transfer movements
+    # now, and what is left is derived from them. A stored copy is exactly the second
+    # source of truth this module keeps killing.
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
     class Settings:

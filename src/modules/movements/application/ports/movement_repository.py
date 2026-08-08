@@ -42,6 +42,29 @@ class CategorySpend:
 
 
 @dataclass(frozen=True)
+class DebtTransfer:
+    """One movement that touched a debt.
+
+    `into_debt` says which way it went, and nothing more — what that MEANS depends on
+    which way the debt runs, and this module does not know that. Money arriving into a
+    debt is a loan when they owe me and a repayment when I owe them; the debts module
+    reads the flag against its own direction.
+
+    `movement_type` separates the cash that crossed (`transfer`) from the claim given
+    up (`expense`, the write-off). Both leave the debt, and counting a write-off as a
+    repayment would report a person as having paid what they never paid.
+    """
+
+    debt_id: str
+    movement_id: str
+    amount: int
+    occurred_on: str
+    description: str
+    into_debt: bool
+    movement_type: str
+
+
+@dataclass(frozen=True)
 class GoalFunds:
     """What a goal's pocket holds: transfers in minus transfers out.
 
@@ -131,4 +154,10 @@ class MovementRepository(Protocol):
 
     async def goal_funds(self, user_id: UUID) -> list[GoalFunds]:
         """Per goal: transfers in minus out, and the day of the first contribution."""
+        ...
+
+    async def debt_transfers(self, user_id: UUID) -> list[DebtTransfer]:
+        """Every transfer touching a debt, oldest first. Rows rather than a sum: a
+        debt shows its instalments one by one, and each one IS a movement the user
+        can open."""
         ...

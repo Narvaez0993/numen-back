@@ -33,6 +33,7 @@ from anthropic.types import (
 )
 
 from src.modules.assistant.application.ports.agent_model import (
+    FORCE_ANY_TOOL,
     ModelMessage,
     ModelTurn,
     TokenUsage,
@@ -92,7 +93,7 @@ class AnthropicAgentModel:
         _mark_loop_breakpoint(sdk_messages)
 
         extra: dict[str, Any] = (
-            {"tool_choice": {"type": "tool", "name": force_tool}, "thinking": {"type": "disabled"}}
+            {"tool_choice": _tool_choice(force_tool), "thinking": {"type": "disabled"}}
             if force_tool is not None
             else {"output_config": {"effort": self._effort}}
         )
@@ -180,3 +181,15 @@ def _mark_loop_breakpoint(messages: list[MessageParam]) -> None:
         last = content[-1]
         if isinstance(last, dict) and last.get("type") in ("text", "tool_result"):
             last["cache_control"] = _CACHE
+
+
+def _tool_choice(force_tool: str) -> dict[str, Any]:
+    """`any` means "call SOME tool" — the model still picks which.
+
+    Capture uses it so the sentence decides whether a movement or a debt is staged.
+    Naming one tool would decide that for it, which is how lending used to be
+    recorded as spending.
+    """
+    if force_tool == FORCE_ANY_TOOL:
+        return {"type": "any"}
+    return {"type": "tool", "name": force_tool}

@@ -10,6 +10,7 @@ from src.modules.movements.adapters.outbound.persistence.mappers.movement_mapper
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
     DaySpend,
+    DebtTransfer,
     GoalFunds,
     MerchantSpend,
     MovementQuery,
@@ -279,3 +280,36 @@ class MongoMovementRepository:
         for goal_id, total in withdrawn.items():
             funds[goal_id] = GoalFunds(goal_id=goal_id, saved=-total, first_in_on=None)
         return list(funds.values())
+
+    async def debt_transfers(self, user_id: UUID) -> list[DebtTransfer]:
+        """A plain read, not an aggregation: the caller wants the instalments, and a
+        person's debt movements are dozens, not thousands.
+
+        Not filtered by type: the write-off is an expense out of the debt, and the
+        caller needs to tell it apart rather than never see it.
+        """
+        docs = await MovementDocument.find(
+            MovementDocument.user_id == str(user_id),
+            {"$or": [{"source_type": "debt"}, {"destination_type": "debt"}]},
+        ).to_list()
+        rows = [
+            DebtTransfer(
+                # One end is always the debt (the filter guarantees it), and the
+                # id beside a `debt` type is never null.
+                debt_id=str(
+                    doc.destination_id if doc.destination_type == "debt" else doc.source_id
+                ),
+                movement_id=doc.id,
+                amount=doc.amount,
+                occurred_on=doc.occurred_on,
+                description=doc.description,
+                into_debt=doc.destination_type == "debt",
+                movement_type=doc.type,
+            )
+            for doc in docs
+            # A transfer between two debts cannot exist (validation forbids it), but
+            # reading defensively costs nothing and a mis-keyed row would be silent.
+            if doc.source_type == "debt" or doc.destination_type == "debt"
+        ]
+        rows.sort(key=lambda row: (row.occurred_on, row.movement_id))
+        return rows

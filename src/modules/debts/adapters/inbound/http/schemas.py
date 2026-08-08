@@ -15,6 +15,9 @@ class CreateDebtRequest(BaseModel):
     counterparty_id: str | None = None
     counterparty_name: str | None = Field(default=None, max_length=MAX_NAME_LENGTH)
     amount: int = Field(gt=0)
+    account_id: str | None = None
+    """The account the cash moved on, when it moved. Omit it for a debt that shifted
+    no money — a dinner split, where the bill already left as one expense."""
     due_on: str | None = None
     note: str | None = Field(default=None, max_length=MAX_NOTE_LENGTH)
 
@@ -46,7 +49,11 @@ class UpdateDebtRequest(BaseModel):
 
 
 class AddPaymentRequest(BaseModel):
+    """A repayment moves real cash, so the account is required — unlike the loan,
+    which may never have moved any."""
+
     amount: int = Field(gt=0)
+    account_id: str = Field(min_length=1)
     note: str | None = Field(default=None, max_length=MAX_NOTE_LENGTH)
 
 
@@ -71,6 +78,9 @@ class DebtResponse(BaseModel):
     due_on: str | None
     note: str | None
     event_id: str | None
+    written_off_on: str | None
+    """The day the user gave up on it, or nothing. What it cost is not here — that is
+    the expense the write-off recorded, and it reads in Movimientos like any other."""
     payments: list[PaymentResponse]
     created_at: str
 

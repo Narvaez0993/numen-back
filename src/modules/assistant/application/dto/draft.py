@@ -12,8 +12,8 @@ class DraftDTO(BaseModel):
     description: str
     amount: int
     currency: str
-    source_type: str
-    source_id: str
+    source_type: str | None
+    source_id: str | None
     destination_type: str | None
     destination_id: str | None
     category_id: str | None

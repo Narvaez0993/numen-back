@@ -44,8 +44,11 @@ class MovementDraft:
     description: str
     amount: int
     """Positive, in the minor unit of `currency`."""
-    source_type: str
-    source_id: str
+    source_type: str | None
+    source_id: str | None
+    """`None` when the capture never said where the money came from and the user
+    owns more than one source. A draft is allowed to be incomplete here — the
+    confirm card asks — but `confirm` refuses to save one that still is."""
     destination_type: str | None
     destination_id: str | None
     category_id: str | None
@@ -70,8 +73,8 @@ class MovementDraft:
         type: str,
         description: str,
         amount: int,
-        source_type: str,
-        source_id: str,
+        source_type: str | None,
+        source_id: str | None,
         destination_type: str | None,
         destination_id: str | None,
         category_id: str | None,

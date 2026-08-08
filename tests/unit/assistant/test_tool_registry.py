@@ -7,7 +7,16 @@ import pytest
 from src.modules.assistant.application.ports.agent_model import ToolCall
 from src.modules.assistant.application.services.tool_registry import ToolContext
 
-from .fakes import ACCOUNT_ID, CARD_ID, CATEGORY_ID, CURRENCY, TODAY, USER_ID, registry
+from .fakes import (
+    ACCOUNT_ID,
+    CARD_ID,
+    CATEGORY_ID,
+    CURRENCY,
+    TODAY,
+    USER_ID,
+    FakeSoleSourceReader,
+    registry,
+)
 
 
 def ctx(
@@ -58,6 +67,35 @@ async def test_an_unknown_source_is_a_tool_error() -> None:
     outcome = await registry().execute(stage_call(source_id="acc-nope"), ctx())
     assert outcome.is_error
     assert "unknown source_id" in outcome.content
+
+
+@pytest.mark.asyncio
+async def test_a_capture_without_a_source_stages_without_one() -> None:
+    """The user said "un café de 5000" and never said where from. Picking the
+    likeliest account for them is the behaviour this test exists to prevent."""
+    call = stage_call()
+    del call.arguments["source_id"]
+
+    outcome = await registry().execute(call, ctx())
+
+    assert not outcome.is_error
+    assert outcome.draft is not None
+    assert outcome.draft.source_id is None
+    assert outcome.draft.source_type is None
+
+
+@pytest.mark.asyncio
+async def test_the_only_source_a_user_owns_is_filled_in() -> None:
+    """With one account and no cards there is nothing to choose — asking would
+    be ceremony, not honesty."""
+    call = stage_call()
+    del call.arguments["source_id"]
+
+    outcome = await registry(FakeSoleSourceReader()).execute(call, ctx())
+
+    assert outcome.draft is not None
+    assert outcome.draft.source_id == ACCOUNT_ID
+    assert outcome.draft.source_type == "account"
 
 
 @pytest.mark.asyncio
@@ -122,6 +160,8 @@ async def test_read_tools_mark_the_outcome_as_read() -> None:
 def test_the_toolset_is_fixed_and_ends_with_the_terminal_tool() -> None:
     specs = registry().specs()
     names = [spec.name for spec in specs]
-    assert len(names) == 12
+    assert len(names) == 14
     assert names[-1] == "respond_with_blocks"
     assert "stage_movement_draft" in names
+    assert "stage_debt_draft" in names
+    assert "stage_debt_payment_draft" in names

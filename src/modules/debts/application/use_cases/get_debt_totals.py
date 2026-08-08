@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from src.modules.debts.application.dto.debt import DebtTotalsDTO
 from src.modules.debts.application.dto.debt_commands import DebtTotalsInputDTO
 from src.modules.debts.application.ports.debt_repository import DebtRepository
+from src.modules.debts.application.ports.settlement_reader import (
+    NO_SETTLEMENT,
+    SettlementReader,
+)
+from src.modules.debts.application.services import settlement as settlement_service
 from src.modules.debts.domain import status as debt_status
 
 
@@ -16,15 +21,20 @@ class GetDebtTotalsUseCase:
     """
 
     debt_repository: DebtRepository
+    settlement_reader: SettlementReader
 
     async def execute(self, input_dto: DebtTotalsInputDTO) -> DebtTotalsDTO:
         debts = await self.debt_repository.list_by_user(input_dto.user_id)
+        settlements = await self.settlement_reader.settlements(input_dto.user_id)
 
         i_owe = 0
         owed_to_me = 0
         open_count = 0
         for debt in debts:
-            left = debt_status.remaining(debt)
+            left = debt_status.remaining(
+                debt,
+                settlement_service.repaid(debt, settlements.get(debt.id, NO_SETTLEMENT)),
+            )
             if left == 0:
                 continue
             open_count += 1
