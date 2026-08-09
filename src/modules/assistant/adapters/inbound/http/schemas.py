@@ -114,6 +114,7 @@ class ParseResponse(BaseModel):
     drafts: list[DraftResponse]
     debt_drafts: list[DebtDraftResponse] = []
     clarification: str | None
+    notice: str | None = None
     usage: UsageResponse
 
 

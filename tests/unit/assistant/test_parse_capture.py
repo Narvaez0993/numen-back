@@ -240,3 +240,56 @@ async def test_the_capture_instruction_and_text_ride_the_user_message() -> None:
     assert "stage_movement_draft" in prompt  # the capture instruction
     assert "gasté 12 lucas en café" in prompt
     assert model.requests[0]["system"].startswith("Eres")
+
+
+@pytest.mark.asyncio
+async def test_the_last_capture_of_the_month_says_what_it_could_not_fit() -> None:
+    """Three things said with one capture left is the exact shape of the bug this
+    guards: the top gate passes (59 < 60), the first call stages and lands on the
+    limit, and the other two die against it. That used to return one draft and
+    nothing else — the user saw one card and could not tell whether the app had
+    misheard them or run out of room."""
+    spoken = [("Hamburguesa", "5000"), ("Salchipapas", "10000"), ("Bus", "3000")]
+    model = FakeAgentModel(
+        [
+            turn(
+                tool_calls=tuple(
+                    ToolCall(
+                        id=f"c{index}",
+                        name="stage_movement_draft",
+                        arguments={
+                            "type": "expense",
+                            "amount": amount,
+                            "description": description,
+                            "source_id": ACCOUNT_ID,
+                        },
+                    )
+                    for index, (description, amount) in enumerate(spoken)
+                )
+            )
+        ]
+    )
+    case, drafts, usage, _ = use_case(model, usage=FakeUsageCounters(registrations_used=59))
+
+    output = await case.execute(parse_input("una hamburguesa de 5 mil, salchipapas 10 y bus 3"))
+
+    assert [draft.description for draft in output.drafts] == ["Hamburguesa"]
+    assert len(drafts.saved) == 1
+    # Only what actually landed is charged.
+    assert usage.consumed == [{"registrations": 1, "messages": 0}]
+    assert output.notice is not None
+    assert "2" in output.notice
+    # The reason has to be in there: "no pude con 2" without a why sends the user
+    # back to repeat themselves into a limit that will drop them again.
+    assert "capturas del mes" in output.notice
+
+
+@pytest.mark.asyncio
+async def test_a_capture_that_understood_everything_carries_no_notice() -> None:
+    """The notice is for loss. A clean capture must not grow a message that makes
+    the user look for something that went wrong."""
+    case, _, _, _ = use_case(FakeAgentModel([stage_turn()]))
+
+    output = await case.execute(parse_input())
+
+    assert output.notice is None

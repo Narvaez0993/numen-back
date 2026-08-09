@@ -56,6 +56,10 @@ services:
       # The assistant's model calls. Set it in docker/.env (gitignored) — compose
       # interpolates from the file next to this one, not from the repo root.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # A day of testing captures burns through the real free tier, and hitting it
+      # mid-sentence is indistinguishable from the app mishearing you. Override in
+      # docker/.env; unset, it is exactly what a free account gets.
+      ASSISTANT_REGISTRATIONS_FREE_LIMIT: ${ASSISTANT_REGISTRATIONS_FREE_LIMIT:-60}
     ports:
       - "8000:8000"
     volumes:
@@ -79,6 +83,7 @@ services:
       JWT_SECRET: dev-secret-do-not-use-in-prod-32chars-min-length-please
       # The narrator (El Corte) runs in the worker, not the API.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_REGISTRATIONS_FREE_LIMIT: ${ASSISTANT_REGISTRATIONS_FREE_LIMIT:-60}
     volumes:
       - ../src:/app/src
     command: ["arq", "src.core.workers.WorkerSettings"]
