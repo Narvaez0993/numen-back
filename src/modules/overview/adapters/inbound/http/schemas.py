@@ -116,6 +116,11 @@ class UpcomingChargeResponse(BaseModel):
     charge_id: str | None
 
 
+class DaySpendResponse(BaseModel):
+    day: str
+    spent: int
+
+
 class HomeOverviewResponse(BaseModel):
     currency: str
     period: str
@@ -143,3 +148,4 @@ class HomeOverviewResponse(BaseModel):
     top_categories: list[TopCategoryResponse]
     recent: list[RecentMovementResponse]
     upcoming: list[UpcomingChargeResponse]
+    by_day: list[DaySpendResponse]

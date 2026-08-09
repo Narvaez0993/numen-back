@@ -6,6 +6,7 @@ from src.modules.overview.application.ports.debt_reader import DebtTotalsView
 from src.modules.overview.application.ports.goal_reader import TopGoalView
 from src.modules.overview.application.ports.movement_summary_reader import (
     CategorySpendView,
+    DaySpendView,
     PeriodSummary,
     RecentMovementView,
 )
@@ -52,12 +53,17 @@ class FakeMovementSummaryReader:
         today: PeriodSummary | None = None,
         previous: PeriodSummary | None = None,
         recent: list[RecentMovementView] | None = None,
+        daily: tuple[DaySpendView, ...] = (),
         month_key: str = MONTH_KEY,
     ) -> None:
         self.month = month or PeriodSummary()
         self.today = today or PeriodSummary()
         self.previous = previous or PeriodSummary()
         self.recent_movements = recent or []
+        self.daily = daily
+        # Its own list: `ranges` pins which stretches get SUMMARISED, and the
+        # rhythm strip is a different question asked of the same reader.
+        self.day_ranges: list[tuple[str, str]] = []
         self.month_key = month_key
         self.ranges: list[tuple[str, str]] = []
 
@@ -71,6 +77,12 @@ class FakeMovementSummaryReader:
 
     async def recent(self, user_id: UUID, limit: int) -> list[RecentMovementView]:
         return self.recent_movements[:limit]
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
+        self.day_ranges.append((date_from, date_to))
+        return self.daily
 
 
 class FakeUpcomingChargesReader:
