@@ -60,6 +60,7 @@ services:
       # mid-sentence is indistinguishable from the app mishearing you. Override in
       # docker/.env; unset, it is exactly what a free account gets.
       ASSISTANT_REGISTRATIONS_FREE_LIMIT: ${ASSISTANT_REGISTRATIONS_FREE_LIMIT:-60}
+      ASSISTANT_REGISTRATIONS_PLUS_LIMIT: ${ASSISTANT_REGISTRATIONS_PLUS_LIMIT:-300}
     ports:
       - "8000:8000"
     volumes:
@@ -84,6 +85,7 @@ services:
       # The narrator (El Corte) runs in the worker, not the API.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSISTANT_REGISTRATIONS_FREE_LIMIT: ${ASSISTANT_REGISTRATIONS_FREE_LIMIT:-60}
+      ASSISTANT_REGISTRATIONS_PLUS_LIMIT: ${ASSISTANT_REGISTRATIONS_PLUS_LIMIT:-300}
     volumes:
       - ../src:/app/src
     command: ["arq", "src.core.workers.WorkerSettings"]
