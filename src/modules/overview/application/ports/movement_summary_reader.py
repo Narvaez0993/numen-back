@@ -46,11 +46,31 @@ class RecentMovementView:
     subscription_id: str | None
 
 
+@dataclass(frozen=True)
+class DaySpendView:
+    """What one day cost."""
+
+    day: str
+    spent: int
+
+
 class MovementSummaryReader(Protocol):
-    """Outbound port: period aggregates and the latest movements."""
+    """Outbound port: period aggregates, the month's rhythm, and the latest movements."""
 
     async def summary(self, user_id: UUID, date_from: str, date_to: str) -> PeriodSummary:
         """A single day is just a range of one: `summary(u, today, today)`."""
         ...
 
     async def recent(self, user_id: UUID, limit: int) -> list[RecentMovementView]: ...
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
+        """Every day in the range, **including the ones that cost nothing**.
+
+        The store only knows about days that had movements, but Home draws this as a
+        row of bars where position IS the date — a sparse answer would slide every
+        bar after a quiet day onto the wrong one. Densifying is the reader's job
+        because it is Home's requirement, not the ledger's.
+        """
+        ...

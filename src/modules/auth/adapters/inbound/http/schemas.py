@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -61,6 +63,8 @@ class CurrentUserResponse(BaseModel):
     display_name: str
     tier: str
     email_verified: bool
+    created_at: datetime
+    """Account birthday, ISO-8601 UTC. Perfil says "contigo desde marzo" with it."""
     language: str
     currency: str
     theme: str

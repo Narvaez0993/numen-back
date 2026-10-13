@@ -18,9 +18,11 @@ from pydantic import BaseModel
 from src.modules.assistant.adapters.inbound.http.schemas import (
     DebtDraftResponse,
     DraftResponse,
+    ParseResponse,
 )
 from src.modules.assistant.application.dto.debt_draft import DebtDraftDTO
 from src.modules.assistant.application.dto.draft import DraftDTO
+from src.modules.assistant.application.dto.parse import ParseCaptureOutputDTO
 
 
 def _fields(model: type[BaseModel]) -> set[str]:
@@ -33,3 +35,10 @@ def test_the_debt_draft_response_carries_every_dto_field() -> None:
 
 def test_the_movement_draft_response_carries_every_dto_field() -> None:
     assert _fields(DraftDTO) == _fields(DraftResponse)
+
+
+def test_the_parse_response_carries_every_dto_field() -> None:
+    """The envelope needs the same guard as the cards inside it. `notice` — what a
+    capture could NOT record — is the kind of field whose absence looks exactly
+    like everything having gone fine."""
+    assert _fields(ParseCaptureOutputDTO) == _fields(ParseResponse)

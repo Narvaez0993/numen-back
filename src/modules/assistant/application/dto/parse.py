@@ -28,4 +28,7 @@ class ParseCaptureOutputDTO(BaseModel):
     drafts: list[DraftDTO]
     debt_drafts: list[DebtDraftDTO] = []
     clarification: str | None
+    notice: str | None = None
+    """Set when the capture understood SOME of what was said and lost the rest —
+    partial success, which used to be reported as total."""
     usage: UsageOutputDTO
