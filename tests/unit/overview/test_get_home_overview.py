@@ -1,7 +1,10 @@
 import pytest
 
 from src.modules.overview.application.dto.home_overview import HomeOverviewInputDTO
-from src.modules.overview.application.ports.movement_summary_reader import PeriodSummary
+from src.modules.overview.application.ports.movement_summary_reader import (
+    DaySpendView,
+    PeriodSummary,
+)
 from src.modules.overview.application.use_cases.get_home_overview import (
     GetHomeOverviewUseCase,
 )
@@ -124,6 +127,35 @@ async def test_the_month_is_compared_against_the_same_stretch_of_the_last_one() 
         (TODAY, TODAY),
         ("2026-06-01", "2026-06-26"),
     ]
+
+
+@pytest.mark.asyncio
+async def test_the_rhythm_strip_runs_from_the_first_to_today_and_not_past_it() -> None:
+    """Home draws the month as a row of bars. It stops at today because trailing
+    zeros for days that have not arrived would read as days the user spent nothing."""
+    summaries = FakeMovementSummaryReader(
+        daily=(
+            DaySpendView(day="2026-07-25", spent=48_000),
+            DaySpendView(day="2026-07-26", spent=196_800),
+        )
+    )
+
+    output = await overview(build(summaries=summaries))
+
+    assert summaries.day_ranges == [("2026-07-01", TODAY)]
+    assert [day.spent for day in output.by_day] == [48_000, 196_800]
+
+
+@pytest.mark.asyncio
+async def test_the_strip_is_not_the_daily_allowance_coming_back() -> None:
+    """Different question, and the payload still refuses the old one: `by_day` is
+    what the month cost day by day, never how much may be spent today."""
+    output = await overview(build())
+
+    payload = output.model_dump()
+    assert "by_day" in payload
+    assert "daily" not in payload
+    assert "available" not in payload
 
 
 @pytest.mark.asyncio

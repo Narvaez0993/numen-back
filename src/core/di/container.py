@@ -687,6 +687,7 @@ def build_container(settings: Settings | None = None) -> Container:
     movement_summary_reader: MovementSummaryReader = MovementsSummaryReader(
         summarize_movements=summarize_movements_use_case,
         list_movements=list_movements_use_case,
+        get_daily_spend=get_daily_spend_use_case,
     )
 
     budget_repository: BudgetRepository = MongoBudgetRepository()

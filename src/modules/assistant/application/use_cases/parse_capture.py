@@ -66,6 +66,21 @@ from src.shared.application.ports.unit_of_work import UnitOfWork
 
 _MAX_CALLS: Final[int] = 3
 
+_QUOTA_ERROR: Final[str] = "registration_quota_exhausted"
+
+
+@dataclass(frozen=True)
+class _Dropped:
+    """Stage calls the model made that produced no draft.
+
+    `quota` separates the two reasons apart, because they need different words:
+    running out of monthly captures is not the same as one of the things being
+    unusable, and telling someone "no pude con 2" without saying why is worse
+    than saying nothing."""
+
+    count: int
+    quota: bool
+
 
 @dataclass
 class _Tally:
@@ -112,7 +127,7 @@ class ParseCaptureUseCase:
 
         tally = _Tally()
         try:
-            drafts, debt_drafts, clarification = await self._run_loop(
+            drafts, debt_drafts, clarification, dropped = await self._run_loop(
                 input_dto, transcript, tally, registrations_limit, usage_before
             )
         except (AgentUnavailableError, AgentProtocolError):
@@ -142,6 +157,11 @@ class ParseCaptureUseCase:
             drafts=[DraftDTO.from_domain(staged) for staged in drafts],
             debt_drafts=[DebtDraftDTO.from_domain(staged) for staged in debt_drafts],
             clarification=clarification,
+            notice=(
+                prompt_builder.dropped_text(input_dto.language, dropped.count, quota=dropped.quota)
+                if dropped is not None
+                else None
+            ),
             usage=UsageOutputDTO(
                 registrations=CounterDTO(
                     used=usage_before.registrations_used + consumed, limit=registrations_limit
@@ -161,7 +181,7 @@ class ParseCaptureUseCase:
         tally: _Tally,
         registrations_limit: int,
         usage_before: UsageView,
-    ) -> tuple[list[MovementDraft], list[DebtDraft], str | None]:
+    ) -> tuple[list[MovementDraft], list[DebtDraft], str | None, _Dropped | None]:
         system = prompt_builder.system_for(input_dto.language)
         specs = self.tool_registry.specs()
         context = ToolContext(
@@ -189,7 +209,7 @@ class ParseCaptureUseCase:
 
             final_call = next((c for c in turn.tool_calls if c.name == RESPOND_TOOL), None)
             if final_call is not None:
-                return [], [], _clarification_from(final_call, input_dto.language)
+                return [], [], _clarification_from(final_call, input_dto.language), None
 
             # One capture can hold several movements ("10 mil en café, 5 mil en
             # papitas"), and the model stages them as parallel calls in one turn.
@@ -199,6 +219,8 @@ class ParseCaptureUseCase:
                 staged: list[MovementDraft] = []
                 staged_debts: list[DebtDraft] = []
                 results: list[ToolResult] = []
+                dropped = 0
+                quota_hit = False
                 for call in stage_calls:
                     # `staged_count` moves as we go: the quota gate must see
                     # everything staged earlier in this same turn, of either kind.
@@ -210,6 +232,9 @@ class ParseCaptureUseCase:
                         staged.append(outcome.draft)
                     if outcome.debt_draft is not None:
                         staged_debts.append(outcome.debt_draft)
+                    if outcome.draft is None and outcome.debt_draft is None:
+                        dropped += 1
+                        quota_hit = quota_hit or _QUOTA_ERROR in outcome.content
                     results.append(
                         ToolResult(
                             tool_call_id=call.id,
@@ -218,7 +243,16 @@ class ParseCaptureUseCase:
                         )
                     )
                 if staged or staged_debts:
-                    return staged, staged_debts, None
+                    # Partial success used to return here as if it were total, and
+                    # the failed calls died with it. Someone who said three things
+                    # got one card and no reason for the other two — the app losing
+                    # words it heard, silently. What was dropped is said out loud.
+                    return (
+                        staged,
+                        staged_debts,
+                        None,
+                        _Dropped(count=dropped, quota=quota_hit) if dropped else None,
+                    )
                 transcript.append(_assistant_turn(turn))
                 transcript.append(_tool_results_for(turn.tool_calls, results))
                 continue
@@ -240,7 +274,7 @@ class ParseCaptureUseCase:
 
             text = turn.text.strip()
             if text:
-                return [], [], text[:280]
+                return [], [], text[:280], None
             transcript.append(_assistant_turn(turn))
             transcript.append(
                 ModelMessage(
@@ -249,7 +283,7 @@ class ParseCaptureUseCase:
                 )
             )
 
-        return [], [], prompt_builder.fallback_text(input_dto.language)
+        return [], [], prompt_builder.fallback_text(input_dto.language), None
 
     async def _build_context(
         self, input_dto: ParseCaptureInputDTO, usage: UsageView, registrations_limit: int

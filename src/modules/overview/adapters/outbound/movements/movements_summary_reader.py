@@ -1,16 +1,20 @@
 from dataclasses import dataclass
+from datetime import date, timedelta
 from uuid import UUID
 
+from src.modules.movements.application.dto.daily_spend import DailySpendInputDTO
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
 from src.modules.movements.application.dto.movement_summary import (
     SummarizeMovementsInputDTO,
 )
+from src.modules.movements.application.use_cases.get_daily_spend import GetDailySpendUseCase
 from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
 from src.modules.movements.application.use_cases.summarize_movements import (
     SummarizeMovementsUseCase,
 )
 from src.modules.overview.application.ports.movement_summary_reader import (
     CategorySpendView,
+    DaySpendView,
     PeriodSummary,
     RecentMovementView,
 )
@@ -26,6 +30,7 @@ class MovementsSummaryReader:
 
     summarize_movements: SummarizeMovementsUseCase
     list_movements: ListMovementsUseCase
+    get_daily_spend: GetDailySpendUseCase
 
     async def summary(self, user_id: UUID, date_from: str, date_to: str) -> PeriodSummary:
         output = await self.summarize_movements.execute(
@@ -65,3 +70,22 @@ class MovementsSummaryReader:
             )
             for movement in output.movements
         ]
+
+    async def spend_by_day(
+        self, user_id: UUID, date_from: str, date_to: str
+    ) -> tuple[DaySpendView, ...]:
+        output = await self.get_daily_spend.execute(
+            DailySpendInputDTO(user_id=user_id, date_from=date_from, date_to=date_to)
+        )
+        spent = {day.day: day.spent for day in output.days}
+
+        # The gaps are the point: a day the user spent nothing is a short bar, not a
+        # missing one, and the row only reads as a calendar if every day has a slot.
+        days: list[DaySpendView] = []
+        cursor = date.fromisoformat(date_from)
+        last = date.fromisoformat(date_to)
+        while cursor <= last:
+            key = cursor.isoformat()
+            days.append(DaySpendView(day=key, spent=spent.get(key, 0)))
+            cursor += timedelta(days=1)
+        return tuple(days)

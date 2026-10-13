@@ -3,6 +3,7 @@ from datetime import date, timedelta
 
 from src.modules.overview.application.dto.home_overview import (
     BudgetDTO,
+    DaySpendDTO,
     DebtsDTO,
     GoalDTO,
     HomeOverviewInputDTO,
@@ -78,6 +79,12 @@ class GetHomeOverviewUseCase:
             input_dto.user_id, previous_from, previous_to
         )
         recent = await self.movement_summary_reader.recent(input_dto.user_id, RECENT_MOVEMENTS)
+        # First of the month to today, not to the last day: the strip is what has
+        # happened, and trailing zeros for days that have not arrived would read as
+        # days the user spent nothing.
+        by_day = await self.movement_summary_reader.spend_by_day(
+            input_dto.user_id, period.first_day, input_dto.today
+        )
         cap = await self.budget_reader.global_cap(input_dto.user_id, input_dto.today)
         category_caps = await self.budget_reader.category_caps(input_dto.user_id, input_dto.today)
         debts = await self.debt_reader.totals(input_dto.user_id)
@@ -139,6 +146,7 @@ class GetHomeOverviewUseCase:
             top_categories=_top_categories(month, category_caps),
             recent=[RecentMovementDTO.from_view(view) for view in recent],
             upcoming=[UpcomingChargeDTO.from_view(view) for view in upcoming],
+            by_day=[DaySpendDTO.from_view(view) for view in by_day],
         )
 
 

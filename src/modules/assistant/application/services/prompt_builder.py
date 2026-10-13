@@ -172,6 +172,27 @@ def system_for(language: str) -> str:
     return _SYSTEM_EN if language == "en" else _SYSTEM_ES
 
 
+def dropped_text(language: str, count: int, *, quota: bool) -> str:
+    """What to say when a capture understood some of what was said but not all.
+
+    Naming the number matters more than it looks: someone who listed three things
+    and got one card cannot tell whether the app misheard them or ran out of room,
+    and the difference decides what they do next — repeat themselves, or stop."""
+    if language == "en":
+        if quota:
+            return (
+                f"I could not add {count} more: your monthly captures ran out. "
+                "You can still write them in by hand."
+            )
+        return f"I could not record {count} more of what you said. Try again with those?"
+    if quota:
+        return (
+            f"No pude agregar {count} más: se te acabaron las capturas del mes. "
+            "Los puedes registrar a mano."
+        )
+    return f"No pude registrar {count} cosa(s) más de lo que dijiste. ¿Lo intentamos otra vez?"
+
+
 def fallback_text(language: str) -> str:
     return _FALLBACK_EN if language == "en" else _FALLBACK_ES
 

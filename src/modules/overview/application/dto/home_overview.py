@@ -6,6 +6,7 @@ from src.modules.overview.application.ports.budget_reader import GlobalCapView
 from src.modules.overview.application.ports.debt_reader import DebtTotalsView
 from src.modules.overview.application.ports.goal_reader import TopGoalView
 from src.modules.overview.application.ports.movement_summary_reader import (
+    DaySpendView,
     RecentMovementView,
 )
 from src.modules.overview.application.ports.upcoming_charges_reader import UpcomingChargeView
@@ -141,6 +142,18 @@ class RecentMovementDTO(BaseModel):
         return cls(**vars(view))
 
 
+class DaySpendDTO(BaseModel):
+    """One day of the month. Dense: days that cost nothing are here at zero, because
+    Home draws these as a row where position is the date."""
+
+    day: str
+    spent: int
+
+    @classmethod
+    def from_view(cls, view: DaySpendView) -> "DaySpendDTO":
+        return cls(day=view.day, spent=view.spent)
+
+
 class UpcomingChargeDTO(BaseModel):
     """A recurring charge about to land. `pending` means it is due and waiting for the
     user to confirm; `charge_id` is what confirm/skip act on."""
@@ -184,3 +197,11 @@ class HomeOverviewOutputDTO(BaseModel):
     top_categories: list[TopCategoryDTO]
     recent: list[RecentMovementDTO]
     upcoming: list[UpcomingChargeDTO]
+    by_day: list[DaySpendDTO]
+    """The month day by day, first to today — what Home draws as the rhythm strip.
+
+    Here rather than on its own endpoint because Home is one read. And named
+    `by_day` rather than `daily` on purpose: `daily` meant the daily allowance,
+    the figure this payload deliberately does not carry, and reusing the word
+    would read as that permission coming back.
+    """
