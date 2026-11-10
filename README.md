@@ -57,6 +57,14 @@ uv run pytest tests/         # tests
 uv run pytest tests/ -v --cov=src   # con cobertura
 ```
 
+Las pruebas de `tests/integration/` usan un MongoDB real (con replica set, para las
+transacciones) y se saltan solas si no hay uno. Para correrlas:
+
+```bash
+docker compose -f docker/docker-compose.yml up -d mongo
+MONGO_TEST_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true' uv run pytest tests/integration
+```
+
 ## Arquitectura
 
 ```

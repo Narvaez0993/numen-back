@@ -11,7 +11,7 @@ from src.modules.movements.application.ports.movement_repository import (
 )
 from src.modules.movements.domain.validation import ensure_occurred_on, ensure_type
 
-MAX_LIMIT = 200
+MAX_LIMIT = 1000
 
 
 @dataclass
