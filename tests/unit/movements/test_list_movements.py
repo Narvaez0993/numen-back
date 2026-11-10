@@ -4,7 +4,10 @@ from uuid import UUID
 import pytest
 
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
-from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.list_movements import (
+    MAX_LIMIT,
+    ListMovementsUseCase,
+)
 from src.modules.movements.domain.entities.movement import Movement, SourceRef
 from src.modules.movements.domain.errors import InvalidMovementError
 
@@ -235,3 +238,23 @@ async def test_hu23_the_combined_filter_keeps_only_what_meets_all_three_conditio
     )
 
     assert [m.description for m in output.movements] == ["match"]
+
+
+@pytest.mark.asyncio
+async def test_a_full_month_of_a_thousand_movements_is_not_cut_off() -> None:
+    """The listing ceiling is 1.000: the app asks for the whole month with limit=1000
+    (HU-23 · «Rendimiento del listado»), and anything above it is clamped to it."""
+    user_id = new_user_id()
+    repository = InMemoryMovementRepository(
+        *[movement(user_id, occurred_on="2026-07-10", order=i) for i in range(MAX_LIMIT + 5)]
+    )
+    use_case = ListMovementsUseCase(movement_repository=repository)
+
+    exact = await use_case.execute(ListMovementsInputDTO(user_id=user_id, limit=1000))
+    greedy = await use_case.execute(ListMovementsInputDTO(user_id=user_id, limit=5000))
+    default = await use_case.execute(ListMovementsInputDTO(user_id=user_id))
+
+    assert MAX_LIMIT == 1000
+    assert len(exact.movements) == 1000
+    assert len(greedy.movements) == 1000
+    assert len(default.movements) == 100
