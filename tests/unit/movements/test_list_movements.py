@@ -170,3 +170,68 @@ async def test_rejects_a_bogus_date_bound() -> None:
 
     with pytest.raises(InvalidMovementError):
         await use_case.execute(ListMovementsInputDTO(user_id=new_user_id(), date_from="julio"))
+
+
+@pytest.mark.asyncio
+async def test_hu23_the_combined_filter_keeps_only_what_meets_all_three_conditions() -> None:
+    """HU-23 · «Filtro combinado»: tipo «gasto», categoría «Transporte» y fuente «Visa»
+    muestran solo los movimientos que cumplen las tres condiciones."""
+    user_id = new_user_id()
+
+    def entry(
+        id_: str, *, type: str, category_id: str | None, source_type: str, source_id: str
+    ) -> Movement:
+        return Movement(
+            id=id_,
+            user_id=user_id,
+            type=type,  # type: ignore[arg-type]
+            description=id_,
+            amount=10_000,
+            currency=CURRENCY,
+            source=SourceRef(type=source_type, id=source_id),  # type: ignore[arg-type]
+            destination=None,
+            category_id=category_id,
+            occurred_on="2026-07-10",
+            captured_via="manual",
+            created_at=FIXED_NOW,
+        )
+
+    repository = InMemoryMovementRepository(
+        entry(
+            "match",
+            type="expense",
+            category_id="transporte",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+        entry(
+            "other-category",
+            type="expense",
+            category_id="mercado",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+        entry(
+            "other-source",
+            type="expense",
+            category_id="transporte",
+            source_type="account",
+            source_id="nequi",
+        ),
+        entry(
+            "other-type",
+            type="income",
+            category_id="transporte",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+    )
+    use_case = ListMovementsUseCase(movement_repository=repository)
+
+    output = await use_case.execute(
+        ListMovementsInputDTO(
+            user_id=user_id, type="expense", category_id="transporte", source_id="visa"
+        )
+    )
+
+    assert [m.description for m in output.movements] == ["match"]

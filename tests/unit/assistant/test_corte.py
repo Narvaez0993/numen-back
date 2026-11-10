@@ -30,12 +30,14 @@ from src.modules.assistant.application.services.narration import (
 from src.modules.assistant.application.use_cases.compose_monthly_summary import (
     ComposeMonthlySummaryUseCase,
 )
+from src.modules.assistant.application.use_cases.get_usage import GetUsageUseCase, UsageInputDTO
 from src.modules.assistant.application.use_cases.run_monthly_summaries import (
     RunMonthlySummariesUseCase,
 )
 from src.modules.assistant.domain.entities.agent_output import MONTHLY_SUMMARY
 from src.modules.assistant.domain.errors import AgentUnavailableError
 from tests.unit.assistant.fakes import (
+    PLAN_LIMITS,
     PRICING,
     USER_ID,
     FailingAgentModel,
@@ -43,6 +45,7 @@ from tests.unit.assistant.fakes import (
     FakeAgentModel,
     FakeAgentOutputRepository,
     FakeCategoriesReader,
+    FakeUsageCounters,
     turn,
 )
 
@@ -547,3 +550,40 @@ async def test_sweep_counts_and_survives_failures() -> None:
 
     assert counts == {"generated": 1, "skipped": 1, "failed": 1}
     assert compose.periods == [PERIOD, PERIOD, PERIOD]  # Aug 1 reviews July
+
+
+async def test_hu47_composing_the_corte_on_the_free_plan_leaves_the_usage_counters_alone() -> None:
+    """HU-47 · «El cierre no consume mi cuota»: en plan gratuito, recibir el cierre del
+    mes no incrementa ningún contador de uso.
+
+    The use case has no dependency on the counters at all (its cost goes to the action
+    log), so the proof reads the counters the way the app does, through `GetUsageUseCase`,
+    before and after a real composition that calls the model.
+    """
+    counters = FakeUsageCounters(registrations_used=7, messages_used=4)
+    meter = GetUsageUseCase(usage_counters=counters, plan_limits=PLAN_LIMITS)
+    usage_input = UsageInputDTO(user_id=USER_ID, tier="free", today="2026-08-01")
+    before = await meter.execute(usage_input)
+
+    outputs = FakeAgentOutputRepository()
+    log = FakeActionLog()
+
+    def narrate_all(messages):
+        import json
+
+        request = json.loads(messages[-1].text)
+        items = [{"item_id": i["item_id"], "text": "Línea."} for i in request["items"]]
+        return turn(tool_calls=(narrate_everything({"items": items}),))
+
+    model = FakeAgentModel([narrate_all])
+    use_case, _, _ = build_compose(model, outputs, log, StubMovementsReader(rich_july(), june()))
+
+    assert user().tier == "free"
+    output_id = await use_case.execute(user(), PERIOD)
+
+    after = await meter.execute(usage_input)
+    assert output_id is not None  # the corte really was composed, model included
+    assert len(model.requests) == 1
+    assert counters.consumed == []
+    assert after == before
+    assert (after.registrations.used, after.messages.used) == (7, 4)
