@@ -101,6 +101,9 @@ python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
 addopts = "-ra --strict-markers"
+markers = [
+    "integration: needs a real MongoDB replica set (set MONGO_TEST_URI); skipped otherwise",
+]
 
 [tool.coverage.run]
 branch = true

@@ -88,3 +88,20 @@ async def test_an_overdrawn_account_lowers_the_net_balance() -> None:
 
     assert output.debit_total == 150_000
     assert output.net_balance == 150_000
+
+
+@pytest.mark.asyncio
+async def test_hu09_a_net_balance_below_zero_is_reported_negative_not_clamped() -> None:
+    """HU-09 · «Saldo neto negativo»: cuenta de 800.000 y deuda de tarjeta de 1.200.000
+    dan -400.000; el sistema no lo redondea a cero."""
+    user_id = new_user_id()
+    accounts = InMemoryAccountRepository(make_account(user_id, name="BBVA", balance=800_000))
+    cards = InMemoryCreditCardRepository(make_card(user_id, debt=1_200_000))
+
+    output = await build(accounts, cards).execute(
+        AccountsOverviewInputDTO(user_id=user_id, currency="COP")
+    )
+
+    assert output.debit_total == 800_000
+    assert output.tc_debt == 1_200_000
+    assert output.net_balance == -400_000

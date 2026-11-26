@@ -65,7 +65,7 @@ async def list_movements(
     type: str | None = Query(default=None),
     source_id: str | None = Query(default=None, alias="source"),
     category_id: str | None = Query(default=None, alias="category"),
-    limit: int = Query(default=100, ge=1, le=200),
+    limit: int = Query(default=100, ge=1, le=1000),
     caller: CallerContext = Depends(get_caller),
     use_case: ListMovementsUseCase = Depends(_depends_list_use_case),
 ) -> MovementsListResponse:

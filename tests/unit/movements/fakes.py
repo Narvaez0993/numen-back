@@ -9,6 +9,7 @@ from src.modules.movements.application.ports.idempotency_store import (
 from src.modules.movements.application.ports.movement_repository import (
     CategorySpend,
     DaySpend,
+    GoalFunds,
     MovementQuery,
     MovementTotals,
 )
@@ -122,6 +123,23 @@ class InMemoryMovementRepository:
         return [
             DaySpend(day=day, spent=sum(m.amount for m in items), count=len(items))
             for day, items in sorted(buckets.items())
+        ]
+
+    async def goal_funds(self, user_id: UUID) -> list[GoalFunds]:
+        """Transfers into a pocket minus transfers out, like the real aggregation."""
+        saved: dict[str, int] = {}
+        first_in: dict[str, str] = {}
+        for m in sorted(self.movements, key=lambda m: m.occurred_on):
+            if m.user_id != user_id or m.type != "transfer" or m.destination is None:
+                continue
+            if m.destination.type == "goal":
+                saved[m.destination.id] = saved.get(m.destination.id, 0) + m.amount
+                first_in.setdefault(m.destination.id, m.occurred_on)
+            if m.source.type == "goal":
+                saved[m.source.id] = saved.get(m.source.id, 0) - m.amount
+        return [
+            GoalFunds(goal_id=goal_id, saved=total, first_in_on=first_in.get(goal_id))
+            for goal_id, total in saved.items()
         ]
 
 

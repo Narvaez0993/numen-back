@@ -7,10 +7,14 @@ richer or poorer. See docs/02-reglas-de-negocio.md §2.
 
 import pytest
 
+from src.modules.movements.application.dto.movement_summary import SummarizeMovementsInputDTO
 from src.modules.movements.application.services.movement_references import (
     MovementReferences,
 )
 from src.modules.movements.application.use_cases.create_movement import CreateMovementUseCase
+from src.modules.movements.application.use_cases.summarize_movements import (
+    SummarizeMovementsUseCase,
+)
 
 from .fakes import (
     CURRENCY,
@@ -247,3 +251,58 @@ async def test_the_movement_is_stored_with_a_positive_amount_and_its_currency() 
     assert stored.currency == CURRENCY
     assert stored.occurred_on == TODAY
     assert stored.captured_via == "manual"
+
+
+@pytest.mark.asyncio
+async def test_hu16_an_instalment_purchase_is_one_expense_and_each_instalment_a_transfer() -> None:
+    """HU-16 · «Compra a cuotas»: tarjeta con deuda 0, compra de 1.200.000 a doce cuotas.
+    La deuda sube 1.200.000 y el gasto del mes también al comprar; cada cuota que se paga
+    después es una transferencia que baja la deuda sin ser gasto nuevo. El número de
+    cuotas no se registra en el MVP."""
+    ledger = FakeSourceLedger(accounts={"nequi": 5_000_000}, cards={"visa": 0})
+    repository = InMemoryMovementRepository()
+    use_case = CreateMovementUseCase(
+        movement_repository=repository,
+        source_ledger=ledger,
+        references=MovementReferences(source_ledger=ledger, category_lookup=FakeCategoryLookup()),
+        idempotency_store=InMemoryIdempotencyStore(),
+        unit_of_work=ImmediateUnitOfWork(),
+        clock=FixedClock(),
+    )
+    user_id = new_user_id()
+    month = SummarizeMovementsInputDTO(
+        user_id=user_id, date_from="2026-07-01", date_to="2026-07-31"
+    )
+    summary = SummarizeMovementsUseCase(movement_repository=repository)
+
+    await use_case.execute(
+        create_input(
+            user_id,
+            type="expense",
+            amount=1_200_000,
+            source_type="credit_card",
+            source_id="visa",
+        )
+    )
+
+    assert ledger.cards["visa"] == 1_200_000
+    assert (await summary.execute(month)).expense_total == 1_200_000
+
+    for _ in range(2):
+        await use_case.execute(
+            create_input(
+                user_id,
+                type="transfer",
+                amount=100_000,
+                source_id="nequi",
+                destination_type="credit_card",
+                destination_id="visa",
+                category_id=None,
+            )
+        )
+
+    assert ledger.cards["visa"] == 1_000_000
+    assert ledger.accounts["nequi"] == 4_800_000
+    after = await summary.execute(month)
+    assert after.expense_total == 1_200_000  # the instalments are not new spending
+    assert after.count == 3

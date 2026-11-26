@@ -4,7 +4,10 @@ from uuid import UUID
 import pytest
 
 from src.modules.movements.application.dto.list_movements import ListMovementsInputDTO
-from src.modules.movements.application.use_cases.list_movements import ListMovementsUseCase
+from src.modules.movements.application.use_cases.list_movements import (
+    MAX_LIMIT,
+    ListMovementsUseCase,
+)
 from src.modules.movements.domain.entities.movement import Movement, SourceRef
 from src.modules.movements.domain.errors import InvalidMovementError
 
@@ -170,3 +173,88 @@ async def test_rejects_a_bogus_date_bound() -> None:
 
     with pytest.raises(InvalidMovementError):
         await use_case.execute(ListMovementsInputDTO(user_id=new_user_id(), date_from="julio"))
+
+
+@pytest.mark.asyncio
+async def test_hu23_the_combined_filter_keeps_only_what_meets_all_three_conditions() -> None:
+    """HU-23 · «Filtro combinado»: tipo «gasto», categoría «Transporte» y fuente «Visa»
+    muestran solo los movimientos que cumplen las tres condiciones."""
+    user_id = new_user_id()
+
+    def entry(
+        id_: str, *, type: str, category_id: str | None, source_type: str, source_id: str
+    ) -> Movement:
+        return Movement(
+            id=id_,
+            user_id=user_id,
+            type=type,  # type: ignore[arg-type]
+            description=id_,
+            amount=10_000,
+            currency=CURRENCY,
+            source=SourceRef(type=source_type, id=source_id),  # type: ignore[arg-type]
+            destination=None,
+            category_id=category_id,
+            occurred_on="2026-07-10",
+            captured_via="manual",
+            created_at=FIXED_NOW,
+        )
+
+    repository = InMemoryMovementRepository(
+        entry(
+            "match",
+            type="expense",
+            category_id="transporte",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+        entry(
+            "other-category",
+            type="expense",
+            category_id="mercado",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+        entry(
+            "other-source",
+            type="expense",
+            category_id="transporte",
+            source_type="account",
+            source_id="nequi",
+        ),
+        entry(
+            "other-type",
+            type="income",
+            category_id="transporte",
+            source_type="credit_card",
+            source_id="visa",
+        ),
+    )
+    use_case = ListMovementsUseCase(movement_repository=repository)
+
+    output = await use_case.execute(
+        ListMovementsInputDTO(
+            user_id=user_id, type="expense", category_id="transporte", source_id="visa"
+        )
+    )
+
+    assert [m.description for m in output.movements] == ["match"]
+
+
+@pytest.mark.asyncio
+async def test_a_full_month_of_a_thousand_movements_is_not_cut_off() -> None:
+    """The listing ceiling is 1.000: the app asks for the whole month with limit=1000
+    (HU-23 · «Rendimiento del listado»), and anything above it is clamped to it."""
+    user_id = new_user_id()
+    repository = InMemoryMovementRepository(
+        *[movement(user_id, occurred_on="2026-07-10", order=i) for i in range(MAX_LIMIT + 5)]
+    )
+    use_case = ListMovementsUseCase(movement_repository=repository)
+
+    exact = await use_case.execute(ListMovementsInputDTO(user_id=user_id, limit=1000))
+    greedy = await use_case.execute(ListMovementsInputDTO(user_id=user_id, limit=5000))
+    default = await use_case.execute(ListMovementsInputDTO(user_id=user_id))
+
+    assert MAX_LIMIT == 1000
+    assert len(exact.movements) == 1000
+    assert len(greedy.movements) == 1000
+    assert len(default.movements) == 100
